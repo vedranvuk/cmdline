@@ -4,8 +4,6 @@
 
 package cmdline
 
-import "strings"
-
 // NewArguments is an alias for NewUnixArguments.
 func NewArguments(args ...string) Arguments { return NewUnixArguments(args...) }
 
@@ -228,17 +226,18 @@ func (ua *unixarguments) ParseArgument() {
 			}
 		}
 	}
-	var kv = strings.SplitN(ua.name, "=", 2)
-	if len(kv) > 1 {
-		if len(kv[0]) == 0 {
-			ua.kind = InvalidArgument
-			ua.name = ""
+	for i := 0; i < len(ua.name); i++ {
+		if ua.name[i] == '=' {
+			if i == 0 {
+				ua.kind = InvalidArgument
+				ua.name = ""
+				return
+			}
+			ua.kind = AssignmentArgument
+			ua.value = ua.name[i+1:]
+			ua.name = ua.name[:i]
 			return
 		}
-		ua.kind = AssignmentArgument
-		ua.name = kv[0]
-		ua.value = kv[1]
-		return
 	}
 	return
 }

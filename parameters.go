@@ -90,38 +90,7 @@ func (p *Parameter) Value() interface{} { return p.value }
 // Result is valid if Parsed returns true.
 func (p *Parameter) RawValue() string { return p.rawvalue }
 
-// Parse parses Parameter from arguments and optionally returns an error.
-// Parameter will never be marked parsed in case of an error. On successfull
-// Parse a nil error is returned and Parameter may or may not be marked parsed.
-//
-// If Parameter is already marked parsed returns ErrParsed descendant.
-//
-// If a conversion of value argument to Parameter target value fails an
-// ErrConvert descendant is returned.
-//
-// Named and Indexed Parameters are parsed differently:
-//
-// Named Parameters
-//
-// If current argument is not a LongArgument or a ShortArgument Parameter is not
-// parsed and nil is returned.
-//
-// If Parameter does not require a value, i.e. it is not marked as required and
-// its target value is not set it is marked as parsed and Parse returns nil.
-//
-// If Parameter requires a value, i.e. it is either marked as required or has a
-// target value set, arguments are advanced by one argument and that argument is
-// read as a Parameter value. If there are no arguments left or argument is not
-// TextArgument an ErrValueRequired descendant is returned.
-//
-// Indexed Parameters
-//
-// If Parameter is required and argument kind is not TextArgument returns an
-// ErrValueRequired.
-//
-// If Parameter is optional and argument kind is not TextArgument returns nil
-// and Parameter is not marked parsed.
-//
+// Parse help.
 func (p *Parameter) Parse(args Arguments) (err error) {
 	if p.Parsed() {
 		return fmt.Errorf("%w: '%s'", ErrParsed, p.name)
@@ -131,51 +100,48 @@ func (p *Parameter) Parse(args Arguments) (err error) {
 		return ErrInvalidArgument
 	case NoArgument:
 		return ErrNoArguments
-	case TextArgument, CombinedArgument:
-		if p.Indexed() {
-			goto checkValueArgument
-		}
-		return nil
-	default:
-		if p.Indexed() {
+	case ShortArgument, LongArgument:
+		if p.indexed {
 			return nil
 		}
-	}
-	if args.Name() != p.name {
-		return nil
-	}
-	if p.Required() || p.Value() != nil {
+		if args.Name() != p.name {
+			return nil
+		}
+		if !p.required && p.value == nil {
+			p.parsed = true
+			args.Advance()
+			return nil
+		}
 		if !args.Advance() {
-			goto valueArgumentRequired
+			return fmt.Errorf("%w: '%s'", ErrValueRequired, p.name)
 		}
-		goto checkValueArgument
-	}
-	goto parseOK
-checkValueArgument:
-	switch args.Kind() {
-	case InvalidArgument:
-		return ErrInvalidArgument
+		p.rawvalue = args.Raw()
+		goto parseValue
+	case CombinedArgument:
+		return nil
 	case TextArgument:
-		goto parseValueArgument
-	default:
-		if p.Indexed() && !p.Required() {
+		if !p.indexed {
 			return nil
 		}
-		goto valueArgumentRequired
+		p.rawvalue = args.Raw()
+		goto parseValue
+	case AssignmentArgument:
+		if p.name != args.Name() {
+			return nil
+		}
+		p.rawvalue = args.Value()
+		goto parseValue
 	}
-parseValueArgument:
+	return nil
+parseValue:
 	if p.value != nil {
-		if err = strconvex.StringToInterface(args.Name(), p.value); err != nil {
-			return fmt.Errorf("%w: %v", ErrConvert, err)
+		if err = strconvex.StringToInterface(p.rawvalue, p.value); err != nil {
+			return err
 		}
 	}
-	p.rawvalue = args.Raw()
-parseOK:
 	p.parsed = true
 	args.Advance()
 	return
-valueArgumentRequired:
-	return fmt.Errorf("%w: '%s'", ErrValueRequired, p.name)
 }
 
 // Parameters define a set of Command Parameters unique by name.
@@ -203,7 +169,7 @@ type longToShort map[string]string
 // can be nil.
 func NewParameters(parent *Command) *Parameters {
 	return &Parameters{
-		parent:     parent,
+		parent:      parent,
 		longparams:  make(nameToParameter),
 		shortparams: make(nameToParameter),
 		longtoshort: make(longToShort),

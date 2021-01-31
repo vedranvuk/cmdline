@@ -19,7 +19,7 @@ type ArgumentTest struct {
 
 var UnixArgumentsTests = []ArgumentTest{
 	{
-		NewUnixArguments("", "--", "=bar", "-f", "--foo", "-foo", "foo", "--foo=bar", "---foo", "--f o o"),
+		NewUnixArguments("", "--", "=bar", "-f", "--foo", "-foo", "foo", "---foo", "--f o o", "--foo=bar", "--foo="),
 		[]ArgumentTestResult{
 			{"", "", InvalidArgument},
 			{"", "", InvalidArgument},
@@ -28,13 +28,15 @@ var UnixArgumentsTests = []ArgumentTest{
 			{"foo", "", LongArgument},
 			{"foo", "", CombinedArgument},
 			{"foo", "", TextArgument},
-			{"foo", "bar", AssignmentArgument},
 			{"", "", InvalidArgument},
 			{"f o o", "", InvalidArgument},
+			{"foo", "bar", AssignmentArgument},
+			{"foo", "", AssignmentArgument},
 			{"", "", NoArgument},
 		},
 	},
 }
+
 
 func TestUnixArguments(t *testing.T) {
 	var test ArgumentTest

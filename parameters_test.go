@@ -56,6 +56,8 @@ var ParameterTests = []*ParameterTest{
 	{"Indexed required", "foo", true, true, nil, true, nil, "bar", NewArguments("bar")},
 	{"Indexed value", "foo", false, true, "bar", true, nil, "bar", NewArguments("bar")},
 	{"Indexed required value", "foo", true, true, "bar", true, nil, "bar", NewArguments("bar")},
+	{"Assignment", "foo", false, false, "bar", true, nil, "bar", NewArguments("--foo=bar")},
+	{"Assignment invalid", "foo", false, false, "bar", true, ErrInvalidArgument, "bar", NewArguments("--foo=")},
 }
 
 func RunParameterTest(test *ParameterTest) error {
@@ -120,7 +122,7 @@ func TestParameter(t *testing.T) {
 type ParameterBenchmark struct {
 	*Parameter
 	Arguments
-	}
+}
 
 func BenchmarkParameter(b *testing.B) {
 	var params = make([]ParameterBenchmark, 0, b.N)

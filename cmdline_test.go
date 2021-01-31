@@ -38,8 +38,11 @@ func TestParseRaw(t *testing.T) {
 		if ctx.RawValue("bar") != "baz" {
 			return errors.New("value not 'bar'")
 		}
-		if len(ctx.Extra()) != 1 && ctx.Extra()[0] != "bat" {
-			return errors.New("extra arguments not given")
+		if len(ctx.Extra()) != 1 {
+			return errors.New("invalid number of extra arguments")
+		}
+		if ctx.Extra()[0] != "bat" {
+			return errors.New("invalid extra arguments")
 		}
 		return nil
 	}

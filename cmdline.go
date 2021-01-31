@@ -7,6 +7,7 @@ package cmdline
 import (
 	"errors"
 	"fmt"
+	"os"
 )
 
 // ErrCmdline is the base error of cmdline package.
@@ -150,4 +151,14 @@ func ParseRaw(commands *Commands, args ...string) error {
 		}
 	}
 	return nil
+}
+
+// ParseOS is like Parse but parses os.Args[1:].
+func ParseOS(commands *Commands) error {
+	return Parse(commands, os.Args[1:]...)
+}
+
+// ParseOSRaw is like ParseRaw but parses os.Args[1:].
+func ParseOSRaw(commands *Commands) error {
+	return ParseRaw(commands, os.Args[1:]...)
 }
