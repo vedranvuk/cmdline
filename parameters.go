@@ -185,6 +185,9 @@ func (p *Parameters) Reset() {
 	}
 }
 
+// Parent returns the parent Command.
+func (p *Parameters) Parent() *Command { return p.parent }
+
 // Length returns number of defined parameters.
 func (p *Parameters) Length() int { return len(p.longindexes) }
 
@@ -229,12 +232,12 @@ func (p *Parameters) AddNamed(name, shortname, help string, required bool, value
 
 // MustAddNamed is like AddParam except the function panics on error.
 // Returns a Command that the param was added to.
-func (p *Parameters) MustAddNamed(name, shortname, help string, required bool, value interface{}) *Command {
+func (p *Parameters) MustAddNamed(name, shortname, help string, required bool, value interface{}) *Parameters {
 	var err error
 	if err = p.AddNamed(name, shortname, help, required, value); err != nil {
 		panic(err)
 	}
-	return p.parent
+	return p
 }
 
 // AddIndexed registers a raw Param under specified name which must be unique
@@ -264,12 +267,12 @@ func (p *Parameters) AddIndexed(name, help string, required bool, value interfac
 
 // MustAddIndexed is like AddRawParam except the function panics on error.
 // Returns a Command that the param was added to.
-func (p *Parameters) MustAddIndexed(name, help string, required bool, value interface{}) *Command {
+func (p *Parameters) MustAddIndexed(name, help string, required bool, value interface{}) *Parameters {
 	var err error
 	if err = p.AddIndexed(name, help, required, value); err != nil {
 		panic(err)
 	}
-	return p.parent
+	return p
 }
 
 // Get returns the Parameter under specified name and nil if found.

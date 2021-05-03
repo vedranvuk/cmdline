@@ -22,7 +22,7 @@ func TestParse(t *testing.T) {
 	}
 	var commands = NewCommands(nil).MustAdd("foo", "", handler).
 		Parameters().MustAddNamed("bar", "", "", true, &value).
-		Parent()
+		Parent().Parent()
 	var err error
 	if err = ParseRaw(commands, "foo", "--bar", "baz"); err != nil {
 		t.Fatal(err)
@@ -48,7 +48,7 @@ func TestParseRaw(t *testing.T) {
 	}
 	var commands = NewCommands(nil).MustAdd("foo", "", handler).
 		Parameters().MustAddNamed("bar", "", "", true, &value).
-		Parent()
+		Parent().Parent()
 	var err error
 	if err = ParseRaw(commands, "foo", "--bar", "baz", "bat"); err != nil {
 		t.Fatal(err)

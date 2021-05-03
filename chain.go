@@ -37,7 +37,7 @@ func (s *StaticChain) Add(command *Command) error {
 }
 
 // ActiveChain is like StaticChain but executes Command's 
-// Handler after adding it to chain.
+// Handler immediately after it is added to the chain.
 type ActiveChain struct{ BaseChain }
 
 // NewActiveChain returns a new ActiveChain optionally containing commands.

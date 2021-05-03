@@ -82,7 +82,6 @@ type Arguments interface {
 }
 
 // Argument defines a kind of argument as recognized by types in this package.
-// Argument is determined from a string depending on Arguments implementation
 type Argument int
 
 const (
@@ -92,14 +91,14 @@ const (
 	InvalidArgument
 	// TextArgument represents a single, possibly space separated text argument.
 	TextArgument
-	// ShortArgument represents a single char argument directly preffixed
-	// with "-".
+	// ShortArgument represents a single char prefixed with a short argument
+	// prefix that depends on Arguments implementation.
 	ShortArgument
-	// LongArgument represents a single word argument directly preffixed 
-	// with "--".
+	// LongArgument represents a single word prefixed with a long argument
+	// prefix that depends on Arguments implementation.
 	LongArgument
-	// CombinedArgument represents a single word argument directly preffixed
-	// with "-".
+	// CombinedArgument represents a single word prefixed with a short argument
+	// prefix that depends on Arguments implementation.
 	CombinedArgument
 	// AssignmentArgument represents an assignment argument.
 	AssignmentArgument

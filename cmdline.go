@@ -10,14 +10,23 @@ import (
 	"os"
 )
 
-// ErrCmdline is the base error of cmdline package.
+// ErrCmdline is the base error of cmdline package. All other errors wrap it
+// and are wrapped themselves with specifics about the error so all error 
+// checking should be done using errors.Is.
 var ErrCmdline = errors.New("cmdline")
 
-// ErrConvert is the base string to go value conversion error.
-var ErrConvert = fmt.Errorf("%w: convert", ErrCmdline)
-
-// ErrRegister is the base Command or Parameter registration error.
-var ErrRegister = fmt.Errorf("%w: register", ErrCmdline)
+var (
+	// ErrConvert is returned if an error occurs during conversion of an 
+	// argument to a Parameter target Go value.
+	ErrConvert = fmt.Errorf("%w: convert", ErrCmdline)
+	// ErrRegister is the base Command or Parameter registration error.
+	ErrRegister = fmt.Errorf("%w: register", ErrCmdline)
+	// ErrNoMatch is returned by Visit if there are no matches.
+	ErrNoMatch = fmt.Errorf("%w: no matches", ErrCmdline)
+	// ErrNoHandler is returned when a Command does not have a handler set and
+	// it is required.
+	ErrNoHandler = fmt.Errorf("%w: no handler", ErrCmdline)
+)
 
 var (
 	// ErrParse is the base error returned by Parse methods.
@@ -45,13 +54,6 @@ var (
 	// ErrParameterRequired is returned if a required parameter was not parsed.
 	ErrParameterRequired = fmt.Errorf("%w: required parameter not specified", ErrParse)
 )
-
-// ErrNoMatch is returned by Visit if there are no matches.
-var ErrNoMatch = fmt.Errorf("%w: no matches", ErrCmdline)
-
-// ErrNoHandler is returned when a Command does not have a handler set and
-// it is required.
-var ErrNoHandler = fmt.Errorf("%w: no handler", ErrCmdline)
 
 // Parse parses commands from args and executes handlers of commands
 // along the internally constructed match Chain. If a handler returns an error

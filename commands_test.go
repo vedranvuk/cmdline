@@ -35,11 +35,11 @@ func (test *CommandTest) RunCommandTest() error {
 var CommandTests = []CommandTest{
 	CommandTest{
 		"Basic",
-		NewCommands(nil).MustAdd("foo", "", nil).
-			Parameters().MustAddNamed("foo", "", "", false, nil).
-			Parameters().MustAddNamed("bar", "", "", false, nil).
-			Parameters().MustAddNamed("baz", "", "", false, nil).
-			Parent(),
+		NewCommands(nil).MustAdd("foo", "", nil).Parameters().
+			MustAddNamed("foo", "", "", false, nil).
+			MustAddNamed("bar", "", "", false, nil).
+			MustAddNamed("baz", "", "", false, nil).
+			Parent().Parent(),
 		[]CommandRun{
 			{
 				NewArguments("foo"),
