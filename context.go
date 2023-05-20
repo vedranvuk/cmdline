@@ -17,6 +17,10 @@ package cmdline
 // propagated to Parse method and returned.
 type Handler = func(Context) error
 
+// NoHandler is an empty handler that can be used as handler when defining a 
+// command that has no functionality/is just a parent to other commands.
+var NoHandler = func(Context) error { return nil }
+
 // Context is a Command Handler context.
 type Context interface {
 	// Name returns the name of Command that registered this handler.
