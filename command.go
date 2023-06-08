@@ -1,5 +1,7 @@
 package cmdline
 
+import "fmt"
+
 // Handler is a command handler. It receives a context to inspect parse state.
 // If the Handler returns an error the execution chan is aborted and the error
 // pushed back to the Set.Parse() caller.
@@ -32,3 +34,32 @@ func (c *Command) Sub() *Set {
 	}
 	return c.set
 }
+
+// Set is a parse set that contains command and flag definitions and the
+// post-parse state inspectable by handlers via their context.
+type Set struct {
+	cmds map[string]*Command
+}
+
+// New returns a new parse Set.
+func New() *Set { return &Set{make(map[string]*Command)} }
+
+// Handle registers a command handler f under specified name and returns the
+// newly defined command.
+func (s *Set) Handle(name string, h Handler) (c *Command) {
+	if name == "" {
+		panic("command name must not be empty")
+	}
+	if _, exists := s.cmds[name]; exists {
+		panic(fmt.Sprintf("command '%s' already registered", name))
+	}
+	if h == nil {
+		panic(fmt.Sprintf("command '%s' nil registering nil handler", name))
+	}
+	c = &Command{h: h, opts: &Options{}}
+	s.cmds[name] = c
+	return
+}
+
+// Count returns number of defined commands.
+func (s *Set) Count() int { return len(s.cmds) }

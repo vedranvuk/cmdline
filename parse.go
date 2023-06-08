@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+const (
+	// LongPrefix is the prefix which specifies long option name, e.g.--verbose
+	LongPrefix = "--"
+	// ShortPrefix is the prefix which specifies short option name, e.g. -v
+	ShortPrefix = "-"
+)
+
 var (
 	// ErrNoArgs is returned when no arguments were given for parsing.
 	ErrNoArgs = errors.New("no arguments")
@@ -168,7 +175,12 @@ func (s *Set) parse(t *tokens) error {
 		if err := cmd.opts.parse(t); err != nil {
 			return err
 		}
-		return cmd.h(cmd.opts)
+		if err := cmd.h(cmd.opts); err != nil {
+			return err
+		}
+		if cmd.Sub().Count() > 0 {
+			return cmd.Sub().parse(t)
+		}
 	}
 	return nil
 }
