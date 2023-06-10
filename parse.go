@@ -61,9 +61,12 @@ func (o *Options) parse(tok *tokens) error {
 		opt = nil
 		// Parse option key and value, find option by key.
 		var key, val, assignment = strings.Cut(tok.Text(), "=")
+		if assignment {
+			if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
+				val = strings.TrimPrefix(strings.TrimSuffix(val, "\""), "\"")
+			}
+		}
 		switch kind := tok.Kind(); kind {
-		case argNone:
-
 		case argText:
 			opt = o.getNextUnparsedIndexed()
 		case argLong:
@@ -82,20 +85,13 @@ func (o *Options) parse(tok *tokens) error {
 			}
 		}
 
-		// Assign value
 		switch opt.kind {
-		case booleanOption:
-		case optionalOption:
-			if opt.argument != "" {
-				if !assignment {
-					return fmt.Errorf("parse: option '%s' requires value", key)
-				}
-				opt.value = val
-			}
 		case requiredOption:
 			if !assignment {
-				return fmt.Errorf("parse: option '%s' requires value", key)
+				return fmt.Errorf("required option '%s' requires a value", opt.long)
 			}
+			fallthrough
+		case optionalOption:
 			opt.value = val
 		case indexedOption:
 			opt.value = key
@@ -104,9 +100,11 @@ func (o *Options) parse(tok *tokens) error {
 		}
 
 		opt.parsed = true
+
 		if opt.kind == variadicOption {
 			break
 		}
+
 		tok.Next()
 	}
 

@@ -7,6 +7,9 @@ import "fmt"
 // pushed back to the Set.Parse() caller.
 type Handler func(Context) error
 
+// NoHandler is a placeholder handler that does nothing.
+var NoHandler = func(c Context) error { return nil }
+
 // Context is passed to the Command handler.
 type Context interface {
 	// Parsed returns truth if a flag with specified long name was parsed.
