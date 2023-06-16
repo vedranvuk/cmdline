@@ -48,7 +48,7 @@ func (o *Options) Indexed(name, argument, help string) *Options {
 // may not have command subsets.
 //
 // Any unparsed arguments at the time of invocation of this option's command
-// handler are retrievable via Context.Args.
+// handler are retrievable via Context.Value as a space delimited string array.
 func (o *Options) Variadic(name string, help string) *Options {
 	return o.option(variadicOption, name, "", "", help)
 }

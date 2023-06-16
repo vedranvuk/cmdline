@@ -22,6 +22,7 @@ type Context interface {
 // Command defines an invokeable command.
 type Command struct {
 	h    Handler
+	help string
 	set  *Set
 	opts *Options
 }
@@ -49,7 +50,7 @@ func New() *Set { return &Set{make(map[string]*Command)} }
 
 // Handle registers a command handler f under specified name and returns the
 // newly defined command.
-func (s *Set) Handle(name string, h Handler) (c *Command) {
+func (s *Set) Handle(name, help string, h Handler) (c *Command) {
 	if name == "" {
 		panic("command name must not be empty")
 	}
@@ -59,7 +60,7 @@ func (s *Set) Handle(name string, h Handler) (c *Command) {
 	if h == nil {
 		panic(fmt.Sprintf("command '%s' nil registering nil handler", name))
 	}
-	c = &Command{h: h, opts: &Options{}}
+	c = &Command{h: h, help: help, opts: &Options{}}
 	s.cmds[name] = c
 	return
 }
