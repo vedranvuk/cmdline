@@ -3,12 +3,12 @@ package cmdline
 import "fmt"
 
 // Handler is a command handler. It receives a context to inspect parse state.
-// If the Handler returns an error the execution chan is aborted and the error
+// If the Handler returns an error the execution chain is aborted and the error
 // pushed back to the Set.Parse() caller.
 type Handler func(Context) error
 
 // NoHandler is a placeholder handler that does nothing.
-var NoHandler = func(c Context) error { return nil }
+var NoHandler = func(Context) error { return nil }
 
 // Context is passed to the Command handler.
 type Context interface {
@@ -23,47 +23,47 @@ type Context interface {
 type Command struct {
 	h    Handler
 	help string
-	set  *Set
-	opts *Options
+	set  *CommandSet
+	opts *OptionSet
 }
 
 // Options returns the commands options.
-func (c *Command) Options() *Options { return c.opts }
+func (self *Command) Options() *OptionSet { return self.opts }
 
 // Sub returns this command's subset of commands which can be invoked on this
 // command.
-func (c *Command) Sub() *Set {
-	if c.set == nil {
-		c.set = New()
+func (self *Command) Sub() *CommandSet {
+	if self.set == nil {
+		self.set = NewCommandSet()
 	}
-	return c.set
+	return self.set
 }
 
-// Set is a parse set that contains command and flag definitions and the
+// CommandSet is a parse set that contains command and flag definitions and the
 // post-parse state inspectable by handlers via their context.
-type Set struct {
+type CommandSet struct {
 	cmds map[string]*Command
 }
 
-// New returns a new parse Set.
-func New() *Set { return &Set{make(map[string]*Command)} }
+// NewCommandSet returns a new parse Set.
+func NewCommandSet() *CommandSet { return &CommandSet{make(map[string]*Command)} }
 
 // Handle registers a command handler f under specified name and returns the
 // newly defined command.
-func (s *Set) Handle(name, help string, h Handler) (c *Command) {
+func (self *CommandSet) Handle(name, help string, h Handler) (c *Command) {
 	if name == "" {
 		panic("command name must not be empty")
 	}
-	if _, exists := s.cmds[name]; exists {
+	if _, exists := self.cmds[name]; exists {
 		panic(fmt.Sprintf("command '%s' already registered", name))
 	}
 	if h == nil {
 		panic(fmt.Sprintf("command '%s' nil registering nil handler", name))
 	}
-	c = &Command{h: h, help: help, opts: &Options{}}
-	s.cmds[name] = c
+	c = &Command{h: h, help: help, opts: &OptionSet{}}
+	self.cmds[name] = c
 	return
 }
 
 // Count returns number of defined commands.
-func (s *Set) Count() int { return len(s.cmds) }
+func (self *CommandSet) Count() int { return len(self.cmds) }

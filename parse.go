@@ -42,8 +42,8 @@ var (
 // Globals will receive options that were specified in args before command
 // invocations. It may be in nil in which case an option in args before a
 // command invocation will produce an error.
-func Parse(args []string, set *Set, globals *Options) (err error) {
-	var t = newTokens(args, LongPrefix, ShortPrefix)
+func Parse(args []string, set *CommandSet, globals *OptionSet) (err error) {
+	var t = newArguments(args, LongPrefix, ShortPrefix)
 	if globals != nil {
 		if err = globals.parse(t); err != nil {
 			return
@@ -55,32 +55,39 @@ func Parse(args []string, set *Set, globals *Options) (err error) {
 	return nil
 }
 
-func (o *Options) parse(tok *tokens) error {
+// parse parses self from args or returns an error.
+func (self *OptionSet) parse(args *arguments) error {
 	var opt *option
 	for {
 		opt = nil
-		// Parse option key and value, find option by key.
-		var key, val, assignment = strings.Cut(tok.Text(), "=")
+
+		// Parse out and clean option key and its optional value.
+		var key, val, assignment = strings.Cut(args.Text(), "=")
+		key = strings.TrimSpace(key)
 		if assignment {
+			val = strings.TrimSpace(val)
+			// naive dequoting: remove leading and trailing quotes if paired.
 			if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
 				val = strings.TrimPrefix(strings.TrimSuffix(val, "\""), "\"")
 			}
+			val = strings.TrimSpace(val)
 		}
-		switch kind := tok.Kind(); kind {
+
+		switch kind := args.Kind(); kind {
 		case argText:
-			opt = o.getNextUnparsedIndexed()
+			opt = self.getNextUnparsedIndexed()
 		case argLong:
-			if opt = o.get(key, ""); opt == nil {
+			if opt = self.get(key, ""); opt == nil {
 				return fmt.Errorf("option --'%s' not registered", key)
 			}
 		case argShort:
-			if opt = o.get("", key); opt == nil {
+			if opt = self.get("", key); opt == nil {
 				return fmt.Errorf("option -'%s' not registered", key)
 			}
 		}
 
 		if opt == nil {
-			if opt = o.getVariadic(); opt == nil {
+			if opt = self.getVariadic(); opt == nil {
 				break
 			}
 		}
@@ -96,7 +103,7 @@ func (o *Options) parse(tok *tokens) error {
 		case indexedOption:
 			opt.value = key
 		case variadicOption:
-			opt.value = strings.Join(tok.FromCurrent(), " ")
+			opt.value = strings.Join(args.FromCurrent(), " ")
 		}
 
 		opt.parsed = true
@@ -105,10 +112,10 @@ func (o *Options) parse(tok *tokens) error {
 			break
 		}
 
-		tok.Next()
+		args.Next()
 	}
 
-	for _, opt = range o.options {
+	for _, opt = range self.options {
 		if !opt.parsed {
 			if opt.kind == requiredOption {
 				return fmt.Errorf("required option '%s' not parsed", opt.long)
@@ -122,16 +129,16 @@ func (o *Options) parse(tok *tokens) error {
 	return nil
 }
 
-func (o *Options) get(long, short string) *option {
+func (self *OptionSet) get(long, short string) *option {
 	if long != "" {
-		for _, v := range o.options {
+		for _, v := range self.options {
 			if v.long == long {
 				return v
 			}
 		}
 	}
 	if short != "" {
-		for _, v := range o.options {
+		for _, v := range self.options {
 			if v.short == short {
 				return v
 			}
@@ -140,8 +147,8 @@ func (o *Options) get(long, short string) *option {
 	return nil
 }
 
-func (o *Options) getNextUnparsedIndexed() *option {
-	for _, v := range o.options {
+func (self *OptionSet) getNextUnparsedIndexed() *option {
+	for _, v := range self.options {
 		if v.kind == indexedOption && v.parsed == false {
 			return v
 		}
@@ -149,8 +156,8 @@ func (o *Options) getNextUnparsedIndexed() *option {
 	return nil
 }
 
-func (o *Options) getVariadic() *option {
-	for _, v := range o.options {
+func (self *OptionSet) getVariadic() *option {
+	for _, v := range self.options {
 		if v.kind == variadicOption {
 			return v
 		}
@@ -158,14 +165,15 @@ func (o *Options) getVariadic() *option {
 	return nil
 }
 
-func (s *Set) parse(t *tokens) error {
+// parse parses t into s.
+func (self *CommandSet) parse(t *arguments) error {
 	switch kind, name := t.Kind(), t.Text(); kind {
 	case argNone:
 		return nil
 	case argLong, argShort:
 		return errors.New("expected command name, got option")
 	case argText:
-		cmd, ok := s.cmds[name]
+		cmd, ok := self.cmds[name]
 		if !ok {
 			return fmt.Errorf("command '%s' not registered", name)
 		}
@@ -183,16 +191,23 @@ func (s *Set) parse(t *tokens) error {
 	return nil
 }
 
+// argKind defines the kind of argument being parsed.
 type argKind int
 
 const (
+	// argNone indicates no argument.
 	argNone argKind = iota
+	// argLong indicates an argument with a long option prefix.
 	argLong
+	// argShort indicates an argument with a short option prefix.
 	argShort
+	// argText indicates a text argument with no prefix.
 	argText
 )
 
-type tokens struct {
+// arguments wraps a slice of arguments to maintain a state for argument
+// itearation and inspection tools.
+type arguments struct {
 	a     []string
 	c     int
 	i     int
@@ -200,8 +215,10 @@ type tokens struct {
 	short string
 }
 
-func newTokens(in []string, long, short string) *tokens {
-	return &tokens{
+// newArguments wraps in into arguments, sets long and short prefixes to
+// recognize and returns it.
+func newArguments(in []string, long, short string) *arguments {
+	return &arguments{
 		a:     in,
 		c:     len(in),
 		i:     0,
@@ -210,48 +227,60 @@ func newTokens(in []string, long, short string) *tokens {
 	}
 }
 
-func (t *tokens) Raw() string {
-	if t.Eof() {
+// Raw returns unmodified current argument as given in input slice.
+func (self *arguments) Raw() string {
+	if self.Eof() {
 		return ""
 	}
-	return t.a[t.i]
+	return self.a[self.i]
 }
 
-func (t *tokens) Kind() (kind argKind) {
-	if t.Eof() {
+// Kind returns the current argument kind.
+func (self *arguments) Kind() (kind argKind) {
+	if self.Eof() {
 		return argNone
 	}
 	kind = argText
 	// in case of "-" as short and "--" as long, long wins.
-	if strings.HasPrefix(t.Raw(), t.short) {
+	if strings.HasPrefix(self.Raw(), self.short) {
 		kind = argShort
 	}
-	if strings.HasPrefix(t.Raw(), t.long) {
+	if strings.HasPrefix(self.Raw(), self.long) {
 		kind = argLong
 	}
 	return
 }
 
-func (t *tokens) Text() string {
-	switch k := t.Kind(); k {
+// Text returns the current argument as text-only, stripped of prefix, if any.
+func (self *arguments) Text() string {
+	switch k := self.Kind(); k {
 	case argShort:
-		return string(t.Raw()[len(t.short):])
+		return string(self.Raw()[len(self.short):])
 	case argLong:
-		return string(t.Raw()[len(t.long):])
+		return string(self.Raw()[len(self.long):])
 	case argText:
-		return t.Raw()
+		return self.Raw()
 	}
 	return ""
 }
 
-func (t *tokens) Next() *tokens {
-	if t.Eof() {
-		return t
+// Next advances current argument pointer to the next argument in the wrapped
+// arguments and returns self. If no arguments are left to advance to the
+// function is a no-op. Use Eof() to check if the arguments are exhausted.
+func (self *arguments) Next() *arguments {
+	if self.Eof() {
+		return self
 	}
-	t.i++
-	return t
+	self.i++
+	return self
 }
 
-func (t *tokens) FromCurrent() []string { return t.a[t.i:] }
+// FromCurrent returns a slice of wrapped arguments starting from and including
+// the current argument. If at EOF an empty slice is returned.
+func (self *arguments) FromCurrent() []string { return self.a[self.i:] }
 
-func (t *tokens) Eof() bool { return t.i >= t.c }
+// Eof returns true if current argument index is past argument count.
+func (self *arguments) Eof() bool { return self.i >= self.c }
+
+// Count returns the argument count.
+func (self *arguments) Count() int { return len(self.a) }

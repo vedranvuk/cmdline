@@ -6,7 +6,7 @@ import (
 )
 
 func TestOptions(t *testing.T) {
-	opts := new(Options)
+	opts := new(OptionSet)
 	opts.Boolean("verbose", "v", "Be verbose.")
 	opts.Optional("force", "f", "", "Force it.")
 	opts.Optional("directory", "d", "string", "Enter directory name.")

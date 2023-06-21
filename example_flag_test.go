@@ -9,7 +9,7 @@ import (
 func ExampleBasic() {
 
 	// Create a new command set to contain our commands.
-	set := cmdline.New()
+	set := cmdline.NewCommandSet()
 
 	// Register a "help" command.
 	set.Handle("help", func(c cmdline.Context) error {
@@ -47,7 +47,7 @@ func ExampleBasic() {
 }
 
 func ExampleSubCommands() {
-	set := cmdline.New()
+	set := cmdline.NewCommandSet()
 	set.Handle("one", func(c cmdline.Context) error {
 		fmt.Printf("one\n")
 		return nil
