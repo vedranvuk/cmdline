@@ -652,6 +652,17 @@ type Config struct {
 	ShortPrefix string
 }
 
+// NewConfig returns a new Config with initialized empty Commands and Options
+// and default prefixes.
+func NewConfig() *Config {
+	return &Config{
+		Commands:    NewCommands(),
+		Globals:     NewOptions(),
+		LongPrefix:  DefaultLongPrefix,
+		ShortPrefix: DefaultShortPrefix,
+	}
+}
+
 const (
 	// DefaultLongPrefix is the default prefix which specifies long option name, e.g.--verbose
 	DefaultLongPrefix = "--"
