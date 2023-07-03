@@ -6,20 +6,24 @@ import (
 	"github.com/vedranvuk/cmdline"
 )
 
+func ExampleParse() {
+
+}
+
 func ExampleBasic() {
 
 	// Create a new command set to contain our commands.
-	set := cmdline.NewCommandSet()
+	set := cmdline.NewCommands()
 
 	// Register a "help" command.
-	set.Handle("help", "Shows help.", func(c cmdline.Context) error {
+	set.Handle("help", "Shows help.", "", func(c cmdline.Context) error {
 		fmt.Printf("help command invoked\n")
 		return nil
 	})
 
-	// Register a "create" command with two oJptions,
+	// Register a "create" command with two options,
 	// first one required, second one optional.
-	set.Handle("create", "Creates a thing.", func(c cmdline.Context) error {
+	set.Handle("create", "Creates a thing.", "", func(c cmdline.Context) error {
 		fmt.Printf("create command invoked\n")
 		// Check if "input-dir" option was parsed
 		// and if it was, retrieve and print its value.
@@ -27,12 +31,12 @@ func ExampleBasic() {
 			fmt.Printf("input-dir: %s\n", c.Value("input-dir"))
 		}
 		return nil
-	}).Options().
+	}).GetOptions().
 		Required("input-dir", "i", "Input directory.", "", "string").
 		Boolean("output-dir", "o", "Output directory.", "")
 
 	// Create global options that may preceede commands.
-	globals := cmdline.NewOptionSet()
+	globals := cmdline.NewOptions()
 	globals.Boolean("verbose", "v", "Be verbose.", "")
 
 	// Parse some arguments.
@@ -51,14 +55,14 @@ func ExampleBasic() {
 }
 
 func ExampleSubCommands() {
-	set := cmdline.NewCommandSet()
-	set.Handle("one", "Command one.", func(c cmdline.Context) error {
+	set := cmdline.NewCommands()
+	set.Handle("one", "Command one.", "", func(c cmdline.Context) error {
 		fmt.Printf("one\n")
 		return nil
-	}).Sub().Handle("two", "Command two.", func(c cmdline.Context) error {
+	}).GetSubCommands().Handle("two", "Command two.", "", func(c cmdline.Context) error {
 		fmt.Printf("two\n")
 		return nil
-	}).Sub().Handle("three", "Command three.", func(c cmdline.Context) error {
+	}).GetSubCommands().Handle("three", "Command three.", "", func(c cmdline.Context) error {
 		fmt.Printf("three\n")
 		return nil
 	})

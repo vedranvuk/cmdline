@@ -8,8 +8,8 @@ import (
 
 func TestOptions(t *testing.T) {
 
-	var getOptions = func() *OptionSet {
-		opts := new(OptionSet)
+	var getOptions = func() *Options {
+		opts := new(Options)
 		opts.Boolean("verbose", "v", "Be verbose.", "Shows extra debug output.")
 		opts.Optional("force", "f", "Force it", "Force something several times.", "int")
 		opts.Optional("directory", "d", "dir name", "Enter directory name.", "string")
