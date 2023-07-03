@@ -11,6 +11,8 @@ type Option interface {
 	//
 	// Options with both long and short names map their long name as the Key.
 	Key() string
+
+	ShortKey() string
 	// Parsed returns true if the Option was parsed from the arguments.
 	Parsed() bool
 	// Value returns parsed Option Value. Result may be an empty string if the
@@ -271,23 +273,29 @@ func (self *OptionSet) Variadic(name, shortHelp, longHelp, arguments string) *Op
 
 // Following funcs implement the Option interface on implemented Option types.
 
-func (self *Boolean) Key() string  { return self.LongName }
-func (self *Optional) Key() string { return self.LongName }
-func (self *Required) Key() string { return self.LongName }
-func (self *Indexed) Key() string  { return self.Name }
-func (self *Variadic) Key() string { return self.Name }
+func (self Boolean) Key() string  { return self.LongName }
+func (self Optional) Key() string { return self.LongName }
+func (self Required) Key() string { return self.LongName }
+func (self Indexed) Key() string  { return self.Name }
+func (self Variadic) Key() string { return self.Name }
 
-func (self *Boolean) Parsed() bool  { return self.option.parsed }
-func (self *Optional) Parsed() bool { return self.option.parsed }
-func (self *Required) Parsed() bool { return self.option.parsed }
-func (self *Indexed) Parsed() bool  { return self.option.parsed }
-func (self *Variadic) Parsed() bool { return self.option.parsed }
+func (self Boolean) ShortKey() string  { return self.ShortName }
+func (self Optional) ShortKey() string { return self.ShortName }
+func (self Required) ShortKey() string { return self.ShortName }
+func (self Indexed) ShortKey() string  { return "" }
+func (self Variadic) ShortKey() string { return "" }
 
-func (self *Boolean) Value() string  { return self.option.value }
-func (self *Optional) Value() string { return self.option.value }
-func (self *Required) Value() string { return self.option.value }
-func (self *Indexed) Value() string  { return self.option.value }
-func (self *Variadic) Value() string { return self.option.value }
+func (self Boolean) Parsed() bool  { return self.option.parsed }
+func (self Optional) Parsed() bool { return self.option.parsed }
+func (self Required) Parsed() bool { return self.option.parsed }
+func (self Indexed) Parsed() bool  { return self.option.parsed }
+func (self Variadic) Parsed() bool { return self.option.parsed }
+
+func (self Boolean) Value() string  { return self.option.value }
+func (self Optional) Value() string { return self.option.value }
+func (self Required) Value() string { return self.option.value }
+func (self Indexed) Value() string  { return self.option.value }
+func (self Variadic) Value() string { return self.option.value }
 
 // Register registers an Option with the CommandSet where option must be one of
 // the Option definition structs in this file. It returns self.
@@ -295,6 +303,7 @@ func (self *Variadic) Value() string { return self.option.value }
 //
 //	Boolean, Optional, Required, Indexed, Variadic
 func (self *OptionSet) Register(option Option) *OptionSet {
+	// TODO: Check short key dulicates.
 	switch o := option.(type) {
 	case *Boolean:
 		self.validateKey(o.LongName)
@@ -302,34 +311,25 @@ func (self *OptionSet) Register(option Option) *OptionSet {
 		self.validateKey(o.LongName)
 	case *Required:
 		self.validateKey(o.LongName)
+		if o.Argument == "" {
+			panic("required option requires an argument")
+		}
 	case *Indexed:
 		self.validateKey(o.Name)
+		if o.Argument == "" {
+			panic("indexed option requires an argument")
+		}
 	case *Variadic:
 		self.validateKey(o.Name)
+		for _, f := range self.options {
+			if _, variadic := f.(*Variadic); variadic {
+				panic("option set already contains a variadic option")
+			}
+		}
 	default:
 		panic("unsupported option type")
 	}
-
-	if kind == requiredOption && argument == "" {
-		panic("required option requires an argument")
-	}
-	if kind == indexedOption && argument == "" {
-		panic("indexed option requires an argument")
-	}
-	for _, f := range o.options {
-		if long == "" {
-			panic("long option name must not be empty")
-		}
-		if f.long == long {
-			panic(fmt.Sprintf("opiton long form '%s' already registered", long))
-		}
-		if f.short == short && short != "" {
-			panic(fmt.Sprintf("option short form '%s' already registered", short))
-		}
-		if f.kind == variadicOption && kind == variadicOption {
-			panic("option set already contains variadic option")
-		}
-	}
+	self.options = append(self.options, option)
 	return self
 }
 
@@ -346,8 +346,8 @@ func (self *OptionSet) validateKey(key string) {
 }
 
 // Parsed implements Context.Parsed.
-func (o *OptionSet) Parsed(name string) bool {
-	for _, v := range o.options {
+func (self *OptionSet) Parsed(name string) bool {
+	for _, v := range self.options {
 		if v.Key() == name {
 			return v.Parsed()
 		}
@@ -356,8 +356,8 @@ func (o *OptionSet) Parsed(name string) bool {
 }
 
 // Parsed implements Context.Value.
-func (o *OptionSet) Value(name string) string {
-	for _, v := range o.options {
+func (self *OptionSet) Value(name string) string {
+	for _, v := range self.options {
 		if v.Key() == name {
 			return v.Value()
 		}

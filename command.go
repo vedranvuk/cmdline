@@ -2,13 +2,20 @@ package cmdline
 
 import "fmt"
 
-// Handler is a command handler. It receives a context to inspect parse state.
-// If the Handler returns an error the execution chain is aborted and the error
-// pushed back to the Set.Parse() caller.
+// Handler is a Command invocation callback prototype. It carries a Command 
+// Context which allows inspection of the parse state.
+//
+// If the handler returns a nil error the parser continues the command chain 
+// execution.
+//
+// If the Handler returns a non-nil error the parser aborts the command chain 
+// execution and the error is pushed back to the Set.Parse() caller.
 type Handler func(Context) error
 
-// NoHandler is a placeholder handler that does nothing.
-var NoHandler = func(Context) error { return nil }
+// NopHandler is an no-op handler that just returns a nil error.
+// It can be used as a placeholder to skip command implementation and continue 
+// the command chain execution.
+var NopHandler = func(Context) error { return nil }
 
 // Context is passed to the Command handler.
 type Context interface {
@@ -19,7 +26,7 @@ type Context interface {
 	Value(string) string
 }
 
-// Command defines an invokeable command.
+// Command defines a command invocable by name.
 type Command struct {
 	h    Handler
 	help string
@@ -48,8 +55,8 @@ type CommandSet struct {
 // NewCommandSet returns a new parse Set.
 func NewCommandSet() *CommandSet { return &CommandSet{make(map[string]*Command)} }
 
-// Handle registers a command handler f under specified name and returns the
-// newly defined command.
+// Handle registers a command handler f for a command under specified name and 
+// returns the newly defined command.
 func (self *CommandSet) Handle(name, help string, h Handler) (c *Command) {
 	if name == "" {
 		panic("command name must not be empty")

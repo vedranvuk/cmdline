@@ -2,31 +2,46 @@ package cmdline
 
 import (
 	"fmt"
+	"os"
 	"testing"
 )
 
 func TestOptions(t *testing.T) {
-	opts := new(OptionSet)
-	opts.Boolean("verbose", "v", "Be verbose.")
-	opts.Optional("force", "f", "", "Force it.")
-	opts.Optional("directory", "d", "string", "Enter directory name.")
-	opts.Indexed("name", "string", "Input name")
-	opts.Variadic("files", "Specify file names.")
+
+	var getOptions = func() *OptionSet {
+		opts := new(OptionSet)
+		opts.Boolean("verbose", "v", "Be verbose.", "Shows extra debug output.")
+		opts.Optional("force", "f", "Force it", "Force something several times.", "int")
+		opts.Optional("directory", "d", "dir name", "Enter directory name.", "string")
+		opts.Indexed("name", "Input name", "Input the name that is used for naming.", "string")
+		opts.Variadic("files", "Specify file names.", "A list of filenames to use.", "strings")
+		return opts
+	}
+
+	opts := getOptions()
 
 	args := []string{"-v", "--force", "-d=/home/yourname", "myname", "arg1", "arg2", "arg3"}
-	fmt.Printf("%#v\n", Parse(args, nil, opts))
+
+	err := Parse(&Config{
+		Args:    args,
+		Globals: opts,
+	})
+	fmt.Printf("%#v\n", err)
+
 	for _, v := range opts.options {
 		fmt.Printf("%#v\n", v)
 	}
 
-	for _, o := range opts.options {
-		o.parsed = false
-	}
+	opts = getOptions()
 	args = []string{}
-	fmt.Printf("%#v\n", Parse(args, nil, opts))
+	err = Parse(&Config{
+		Args:    os.Args[1:],
+		Globals: opts,
+	})
+	fmt.Printf("%#v\n", err)
+	
 	for _, v := range opts.options {
 		fmt.Printf("%#v\n", v)
 	}
-
 
 }

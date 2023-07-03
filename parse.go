@@ -6,22 +6,6 @@ import (
 	"strings"
 )
 
-const (
-	// LongPrefix is the prefix which specifies long option name, e.g.--verbose
-	LongPrefix = "--"
-	// ShortPrefix is the prefix which specifies short option name, e.g. -v
-	ShortPrefix = "-"
-)
-
-var (
-	// ErrNoArgs is returned when no arguments were given for parsing.
-	ErrNoArgs = errors.New("no arguments")
-
-	// ErrVariadic is returned by options parser to indicate the presence of a
-	// variadic option in an option set.
-	ErrVariadic = errors.New("variadic option")
-)
-
 // Parse parses args into specified command set and global options.
 // The command set must contain definition of commands to invoke if parsed from
 // args and globals flags contain Options that can be parsed before any command
@@ -42,22 +26,55 @@ var (
 // Globals will receive options that were specified in args before command
 // invocations. It may be in nil in which case an option in args before a
 // command invocation will produce an error.
-func Parse(args []string, set *CommandSet, globals *OptionSet) (err error) {
-	var t = newArguments(args, LongPrefix, ShortPrefix)
-	if globals != nil {
-		if err = globals.parse(t); err != nil {
+func Parse(config *Config) (err error) {
+	if config.LongPrefix == "" {
+		config.LongPrefix = DefaultLongPrefix
+	}
+	if config.ShortPrefix == "" {
+		config.ShortPrefix = DefaultShortPrefix
+	}
+	if len(config.Args) == 0 {
+		return ErrNoArgs
+	}
+	var args = newArguments(config.Args, config.LongPrefix, config.ShortPrefix)
+	if config.Globals != nil {
+		if err = config.Globals.parse(args); err != nil {
 			return
 		}
 	}
-	if set != nil {
-		return set.parse(t)
+	if config.Commands != nil {
+		return config.Commands.parse(args)
 	}
 	return nil
 }
 
+// Config is the configuration given to Parse.
+type Config struct {
+	// Args is the arguments to parse. This is usually set to os.Args[1:].
+	Args []string
+	// Commands is the CommandSet to parse. Optional.
+	Commands *CommandSet
+	// Globals is the global OptionSet to parse. Optional.
+	Globals *OptionSet
+	// LongPrefix is the long Option prefix to use. Optional.
+	// Defaults to DefaultLongPrefix if empty.
+	LongPrefix string
+	// ShortPrefix is the short Option prefix to use. Optional.
+	// Defaults to DefaultShortPrefix if empty.
+	ShortPrefix string
+}
+
+const (
+	// DefaultLongPrefix is the default prefix which specifies long option name, e.g.--verbose
+	DefaultLongPrefix = "--"
+	// DefaultShortPrefix is the default prefix which specifies short option name, e.g. -v
+	DefaultShortPrefix = "-"
+)
+
 // parse parses self from args or returns an error.
 func (self *OptionSet) parse(args *arguments) error {
-	var opt *option
+	var opt Option
+For:
 	for {
 		opt = nil
 
@@ -92,36 +109,38 @@ func (self *OptionSet) parse(args *arguments) error {
 			}
 		}
 
-		switch opt.kind {
-		case requiredOption:
+		switch o := opt.(type) {
+		case *Boolean:
+			o.parsed = true
+		case *Optional:
+			o.value = val
+			o.parsed = true
+		case *Required:
 			if !assignment {
-				return fmt.Errorf("required option '%s' requires a value", opt.long)
+				return fmt.Errorf("required option '%s' requires a value", o.Key())
 			}
-			fallthrough
-		case optionalOption:
-			opt.value = val
-		case indexedOption:
-			opt.value = key
-		case variadicOption:
-			opt.value = strings.Join(args.FromCurrent(), " ")
-		}
-
-		opt.parsed = true
-
-		if opt.kind == variadicOption {
-			break
+			o.value = val
+			o.parsed = true
+		case *Indexed:
+			o.value = key
+			o.parsed = true
+		case *Variadic:
+			o.value = strings.Join(args.FromCurrent(), " ")
+			o.parsed = true
+			break For
 		}
 
 		args.Next()
 	}
 
+	// Check required options are parsed.
 	for _, opt = range self.options {
-		if !opt.parsed {
-			if opt.kind == requiredOption {
-				return fmt.Errorf("required option '%s' not parsed", opt.long)
+		if !opt.Parsed() {
+			if _, ok := opt.(*Required); ok {
+				return fmt.Errorf("required option '%s' not parsed", opt.Key())
 			}
-			if opt.kind == indexedOption {
-				return fmt.Errorf("indexed option '%s' not parsed", opt.long)
+			if _, ok := opt.(*Indexed); ok {
+				return fmt.Errorf("indexed option '%s' not parsed", opt.Key())
 			}
 		}
 	}
@@ -129,17 +148,17 @@ func (self *OptionSet) parse(args *arguments) error {
 	return nil
 }
 
-func (self *OptionSet) get(long, short string) *option {
+func (self *OptionSet) get(long, short string) Option {
 	if long != "" {
 		for _, v := range self.options {
-			if v.long == long {
+			if v.Key() == long {
 				return v
 			}
 		}
 	}
 	if short != "" {
 		for _, v := range self.options {
-			if v.short == short {
+			if v.ShortKey() == short {
 				return v
 			}
 		}
@@ -147,18 +166,18 @@ func (self *OptionSet) get(long, short string) *option {
 	return nil
 }
 
-func (self *OptionSet) getNextUnparsedIndexed() *option {
+func (self *OptionSet) getNextUnparsedIndexed() Option {
 	for _, v := range self.options {
-		if v.kind == indexedOption && v.parsed == false {
+		if _, ok := v.(Indexed); ok && !v.Parsed() {
 			return v
 		}
 	}
 	return nil
 }
 
-func (self *OptionSet) getVariadic() *option {
+func (self *OptionSet) getVariadic() Option {
 	for _, v := range self.options {
-		if v.kind == variadicOption {
+		if _, ok := v.(*Variadic); ok {
 			return v
 		}
 	}
