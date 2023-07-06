@@ -29,9 +29,9 @@ type Config struct {
 	// Args is the arguments to parse. This is usually set to os.Args[1:].
 	Args []string
 	// Commands is the Commands to parse. Optional.
-	Commands *Commands
+	Commands Commands
 	// Globals is the global Options to parse. Optional.
-	Globals *Options
+	Globals Options
 	// GlobalsHandler is the handler for Globals.
 	// It gets invoked before any Commands handlers. Optional.
 	GlobalsHandler Handler
@@ -41,17 +41,6 @@ type Config struct {
 	// ShortPrefix is the short Option prefix to use. Optional.
 	// Defaults to DefaultShortPrefix if empty.
 	ShortPrefix string
-}
-
-// NewConfig returns a new Config with initialized empty Commands and Options
-// and default prefixes.
-func NewConfig() *Config {
-	return &Config{
-		Commands:    NewCommands(),
-		Globals:     NewOptions(),
-		LongPrefix:  DefaultLongPrefix,
-		ShortPrefix: DefaultShortPrefix,
-	}
 }
 
 const (
@@ -92,16 +81,14 @@ func Parse(config *Config) (err error) {
 		return ErrNoArgs
 	}
 	var args = newArguments(config.Args, config.LongPrefix, config.ShortPrefix)
-	if config.Globals != nil {
-		if err = config.Globals.parse(args); err != nil {
-			return
-		}
-		if config.GlobalsHandler != nil {
-			if err = config.GlobalsHandler(config.Globals); err != nil {
-				return err
-			}
-		}
+	if err = config.Globals.parse(args); err != nil {
+		return
 	}
+	// if config.GlobalsHandler != nil {
+	// 	if err = config.GlobalsHandler(config.Globals); err != nil {
+	// 		return err
+	// 	}
+	// }
 	if config.Commands != nil {
 		return config.Commands.parse(args)
 	}

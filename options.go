@@ -18,9 +18,10 @@ type Option interface {
 	ShortKey() string
 	// Parsed returns true if the Option was parsed from the arguments.
 	Parsed() bool
-	// Value returns parsed Option Value. Result may be an empty string if the
-	// Option was not parsed or takes no argument(s).
-	Value() string
+	// Raw returns the raw option value as a string.
+	Raw() string
+	// Value returns the value mapped to this Option. May be nil if unmapped.
+	Value() any
 }
 
 // Options contains and manages a set of Options.
@@ -29,13 +30,20 @@ type Option interface {
 // Options which may be parsed before any Command invocation and are inspected
 // separately instead of through a Command Context as they apply to no specific
 // Command. For more info see Parse function.
-type Options struct {
-	options []Option
-	values  map[string]any
-}
+type Options []Option
 
-// NewOptions returns a new Options instance.
-func NewOptions() *Options { return &Options{nil, make(map[string]any)} }
+// Returns number of options in self.
+func (self Options) Count() int { return len(self) }
+
+// Get returns an Option with given key or nil if not found.
+func (self Options) Get(key string) Option {
+	for i := 0; i < len(self); i++ {
+		if self[i].Key() == key {
+			return self[i]
+		}
+	}
+	return nil
+}
 
 // Boolean defines a boolean option.
 //
@@ -60,7 +68,7 @@ type Boolean struct {
 // Flag defines an option that is not required. It takes no arguments.
 // Option is defined by long and short names and shows help when printed.
 // Returns self.
-func (self *Options) Boolean(longName, shortName, help string) *Options {
+func (self Options) Boolean(longName, shortName, help string) Options {
 	return self.Register(&Boolean{
 		LongName:  longName,
 		ShortName: shortName,
@@ -94,7 +102,7 @@ type Optional struct {
 // It takes one argument that is described as type of value for the option when
 // printing. Option is defined by long and short names and shows help when
 // printed. Returns self.
-func (self *Options) Optional(longName, shortName, help string) *Options {
+func (self Options) Optional(longName, shortName, help string) Options {
 	return self.Register(&Optional{
 		LongName:  longName,
 		ShortName: shortName,
@@ -127,7 +135,7 @@ type Required struct {
 // described as type of value for the option when printing.
 // Option is defined by long and short names and shows help when printed.
 // Returns self.
-func (self *Options) Required(longName, shortName, help string) *Options {
+func (self Options) Required(longName, shortName, help string) Options {
 	return self.Register(&Required{
 		LongName:  longName,
 		ShortName: shortName,
@@ -174,7 +182,7 @@ type Indexed struct {
 // argument that is described as type of value for the option when printing.
 // Option is defined by long and short names and shows help when printed.
 // Returns self.
-func (self *Options) Indexed(name, help string) *Options {
+func (self Options) Indexed(name, help string) Options {
 	return self.Register(&Indexed{
 		Name: name,
 		Help: help,
@@ -209,7 +217,7 @@ type Variadic struct {
 //
 // Any unparsed arguments at the time of invocation of this option's command
 // handler are retrievable via Context.Value as a space delimited string array.
-func (self *Options) Variadic(name, help string) *Options {
+func (self Options) Variadic(name, help string) Options {
 	return self.Register(&Variadic{
 		Name: name,
 		Help: help,
@@ -236,18 +244,24 @@ func (self Required) Parsed() bool { return self.option.parsed }
 func (self Indexed) Parsed() bool  { return self.option.parsed }
 func (self Variadic) Parsed() bool { return self.option.parsed }
 
-func (self Boolean) Value() string  { return self.option.raw }
-func (self Optional) Value() string { return self.option.raw }
-func (self Required) Value() string { return self.option.raw }
-func (self Indexed) Value() string  { return self.option.raw }
-func (self Variadic) Value() string { return self.option.raw }
+func (self Boolean) Raw() string  { return self.option.raw }
+func (self Optional) Raw() string { return self.option.raw }
+func (self Required) Raw() string { return self.option.raw }
+func (self Indexed) Raw() string  { return self.option.raw }
+func (self Variadic) Raw() string { return self.option.raw }
+
+func (self Boolean) Value() any  { return self.option.value }
+func (self Optional) Value() any { return self.option.value }
+func (self Required) Value() any { return self.option.value }
+func (self Indexed) Value() any  { return self.option.value }
+func (self Variadic) Value() any { return self.option.value }
 
 // Register registers an Option in these Options where option must be one of
 // the Option definition structs in this file. It returns self.
 // Option parameter must be one of:
 //
 //	Boolean, Optional, Required, Indexed, Variadic
-func (self *Options) Register(option Option) *Options {
+func (self Options) Register(option Option) Options {
 	// TODO: Check short key dulicates.
 	switch o := option.(type) {
 	case *Boolean:
@@ -263,7 +277,7 @@ func (self *Options) Register(option Option) *Options {
 		self.validateKey(o.Name)
 	case *Variadic:
 		self.validateKey(o.Name)
-		for _, f := range self.options {
+		for _, f := range self {
 			if _, variadic := f.(*Variadic); variadic {
 				panic("option set already contains a variadic option")
 			}
@@ -271,16 +285,16 @@ func (self *Options) Register(option Option) *Options {
 	default:
 		panic("unsupported option type")
 	}
-	self.options = append(self.options, option)
+	self = append(self, option)
 	return self
 }
 
 // validateKey panics if key is empty or non-unique in these Options.
-func (self *Options) validateKey(key string) {
+func (self Options) validateKey(key string) {
 	if key == "" {
 		panic("empty option key")
 	}
-	for _, option := range self.options {
+	for _, option := range self {
 		if option.Key() == key {
 			panic(fmt.Sprintf("duplicate option key: %s", key))
 		}
@@ -288,14 +302,14 @@ func (self *Options) validateKey(key string) {
 }
 
 // validateKey panics if short key is empty or non-unique in these Options.
-func (self *Options) validateShortKey(key string) {
+func (self Options) validateShortKey(key string) {
 	if key == "" {
 		panic("empty option short key")
 	}
 	if len(key) > 1 {
 		panic("short keys may be one character strings")
 	}
-	for _, option := range self.options {
+	for _, option := range self {
 		if k := option.ShortKey(); k != "" && k == key {
 			panic(fmt.Sprintf("duplicate option short key: %s", key))
 		}
@@ -303,8 +317,8 @@ func (self *Options) validateShortKey(key string) {
 }
 
 // Parsed implements Context.Parsed.
-func (self *Options) Parsed(name string) bool {
-	for _, v := range self.options {
+func (self Options) Parsed(name string) bool {
+	for _, v := range self {
 		if v.Key() == name {
 			return v.Parsed()
 		}
@@ -313,10 +327,10 @@ func (self *Options) Parsed(name string) bool {
 }
 
 // Parsed implements Context.Value.
-func (self *Options) Value(name string) string {
-	for _, v := range self.options {
+func (self Options) Value(name string) string {
+	for _, v := range self {
 		if v.Key() == name {
-			return v.Value()
+			return v.Raw()
 		}
 	}
 	return ""
@@ -329,7 +343,7 @@ type option struct {
 }
 
 // parse parses self from args or returns an error.
-func (self *Options) parse(args *arguments) error {
+func (self Options) parse(args *arguments) error {
 	var opt Option
 For:
 	for {
@@ -395,7 +409,7 @@ For:
 	}
 
 	// Check required options are parsed.
-	for _, opt = range self.options {
+	for _, opt = range self {
 		if !opt.Parsed() {
 			if _, ok := opt.(*Required); ok {
 				return fmt.Errorf("required option '%s' not parsed", opt.Key())
@@ -409,16 +423,16 @@ For:
 	return nil
 }
 
-func (self *Options) get(long, short string) Option {
+func (self Options) get(long, short string) Option {
 	if long != "" {
-		for _, v := range self.options {
+		for _, v := range self {
 			if v.Key() == long {
 				return v
 			}
 		}
 	}
 	if short != "" {
-		for _, v := range self.options {
+		for _, v := range self {
 			if v.ShortKey() == short {
 				return v
 			}
@@ -427,8 +441,8 @@ func (self *Options) get(long, short string) Option {
 	return nil
 }
 
-func (self *Options) getNextUnparsedIndexed() Option {
-	for _, v := range self.options {
+func (self Options) getNextUnparsedIndexed() Option {
+	for _, v := range self {
 		if _, ok := v.(Indexed); ok && !v.Parsed() {
 			return v
 		}
@@ -436,8 +450,8 @@ func (self *Options) getNextUnparsedIndexed() Option {
 	return nil
 }
 
-func (self *Options) getVariadic() Option {
-	for _, v := range self.options {
+func (self Options) getVariadic() Option {
+	for _, v := range self {
 		if _, ok := v.(*Variadic); ok {
 			return v
 		}

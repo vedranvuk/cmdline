@@ -44,62 +44,25 @@ type Command struct {
 	Handler Handler
 	// SubCommands are this Command's sub commands. Command invocation can be
 	// chained as described in the Parse method. SubCommands are optional.
-	SubCommands *Commands
+	SubCommands Commands
 	// Options are this Command's options. Options are optional :|
-	Options *Options
-}
-
-// GetOptions returns the Command's Options.
-//
-// If Command's Options are nil a new Options instance is allocated for the
-// Command then returned.
-func (self *Command) GetOptions() *Options {
-	if self.Options == nil {
-		self.Options = NewOptions()
-	}
-	return self.Options
-}
-
-// GetSubCommands returns this Command's subset of commands which can be invoked
-// on this command.
-//
-// If the Command's sub-commands are nil a new Commands instance is allocated
-// for the Command then returned.
-func (self *Command) GetSubCommands() *Commands {
-	if self.SubCommands == nil {
-		self.SubCommands = NewCommands()
-	}
-	return self.SubCommands
+	Options Options
 }
 
 // Parsed implements Context.Parsed for handlers of commands with no Options.
 // It is a no-op placeholder that returns false.
-func (self *Command) Parsed(string) bool { return false }
+func (self Command) Parsed(string) bool { return false }
 
 // Value implements Context.Value for handlers of commands with no Options.
 // It is a no-op that returns an empty string.
-func (self *Command) Value(string) string { return "" }
+func (self Command) Value(string) string { return "" }
 
 // Commands holds a set of Commands.
-type Commands struct {
-	commands map[string]*Command
-}
-
-// NewCommands returns a new Commands instance.
-//
-// It takes two HelpMaps, for short help text used in option listing as overview
-// and the long help text used when a detailed help for a specific option is
-// invoked.
-//
-// These help maps are used by the standard HelpHandler. Both are optional and
-// if not provided no help text is shown when using HelpHandler.
-func NewCommands() *Commands {
-	return &Commands{make(map[string]*Command)}
-}
+type Commands []*Command
 
 // Handle registers a new Command from specified name, shortHelp, longHelp and
 // Handler h and returns it. If the registration fails the function panics.
-func (self *Commands) Handle(name, help string, h Handler) (c *Command) {
+func (self Commands) Handle(name, help string, h Handler) (c *Command) {
 	c = &Command{
 		Name:    name,
 		Help:    help,
@@ -111,40 +74,44 @@ func (self *Commands) Handle(name, help string, h Handler) (c *Command) {
 
 // Register registers a fully defined Command and returns self. If the
 // registration fails the function panics.
-func (self *Commands) Register(command *Command) *Commands {
+func (self Commands) Register(command *Command) Commands {
 	if command.Name == "" {
 		panic("command name is empty")
 	}
-	if _, exists := self.commands[command.Name]; exists {
-		panic(fmt.Sprintf("command '%s' already registered", command.Name))
+	for i := 0; i < len(self); i++ {
+		if self[i].Name == command.Name {
+			panic(fmt.Sprintf("command '%s' already registered", command.Name))
+		}
 	}
 	if command.Handler == nil {
 		panic(fmt.Sprintf("command '%s' nil registering nil handler", command.Name))
 	}
-	self.commands[command.Name] = command
+	self = append(self, command)
 	return self
 }
 
 // Count returns the number of defined commands in these Commands.
-func (self *Commands) Count() int { return len(self.commands) }
+func (self Commands) Count() int { return len(self) }
 
 // Get returns a Command by name or nil if not found.
-func (self *Commands) Get(name string) *Command {
-	if command, exists := self.commands[name]; exists {
-		return command
+func (self Commands) Get(name string) *Command {
+	for i := 0; i < len(self); i++ {
+		if self[i].Name == name {
+			return self[i]
+		}
 	}
 	return nil
 }
 
-func (self *Commands) parse(t *arguments) error {
+func (self Commands) parse(t *arguments) error {
 	switch kind, name := t.Kind(), t.Text(); kind {
 	case argNone:
 		return nil
 	case argLong, argShort:
 		return errors.New("expected command name, got option")
 	case argText:
-		cmd, ok := self.commands[name]
-		if !ok {
+		cmd := self.Get(name)
+		if cmd == nil {
 			return fmt.Errorf("command '%s' not registered", name)
 		}
 		t.Next()
@@ -161,7 +128,7 @@ func (self *Commands) parse(t *arguments) error {
 			}
 		}
 		if cmd.SubCommands != nil && cmd.SubCommands.Count() > 0 {
-			return cmd.GetSubCommands().parse(t)
+			return cmd.SubCommands.parse(t)
 		}
 	}
 	return nil

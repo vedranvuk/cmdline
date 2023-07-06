@@ -6,12 +6,12 @@ import (
 )
 
 // PrintOptions prints options to w idented with ident tabs.
-func PrintOptions(w io.Writer, options *Options, indent int) {
+func PrintOptions(w io.Writer, options Options, indent int) {
 	if options == nil {
 		return
 	}
-	if len(options.options) > 0 {
-		for _, option := range options.options {
+	if len(options) > 0 {
+		for _, option := range options {
 			PrintOption(w, option, indent)
 		}
 		io.WriteString(w, "\n")
@@ -39,11 +39,11 @@ func PrintOption(w io.Writer, option Option, indent int) {
 }
 
 // PrintOptions prints commands to w idented with ident tabs.
-func PrintCommands(w io.Writer, commands *Commands, indent int) {
+func PrintCommands(w io.Writer, commands Commands, indent int) {
 	if commands == nil {
 		return
 	}
-	for _, command := range commands.commands {
+	for _, command := range commands {
 		PrintCommand(w, command, indent)
 	}
 }
@@ -55,7 +55,7 @@ func PrintCommand(w io.Writer, command *Command, indent int) {
 	}
 	io.WriteString(w, getIndent(indent))
 	io.WriteString(w, fmt.Sprintf("%s\t%s\n", command.Name, ""))
-	if command.Options != nil && len(command.Options.options) > 0 {
+	if command.Options != nil && command.Options.Count() > 0 {
 		PrintOptions(w, command.Options, indent+1)
 	}
 	io.WriteString(w, "\n")
@@ -67,7 +67,7 @@ func PrintCommand(w io.Writer, command *Command, indent int) {
 
 // PrintConfig prints Globals and Commands to w from config.
 func PrintConfig(w io.Writer, config *Config) {
-	if config.Globals != nil && len(config.Globals.options) > 0 {
+	if config.Globals.Count() > 0 {
 		io.WriteString(w, fmt.Sprintf("Global options:\n\n"))
 		PrintOptions(w, config.Globals, 1)
 	}
