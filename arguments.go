@@ -67,7 +67,7 @@ func (self *Arguments) Next() *Arguments {
 }
 
 // End advances past all tokens, to EOF.
-func (self *Arguments) End() { self = &Arguments{} }
+func (self *Arguments) End() { *self = Arguments{} }
 
 // Eof returns true if there are no more tokens in Arguments.
 func (self Arguments) Eof() bool { return len(self) == 0 }

@@ -14,7 +14,8 @@ func TestOptions(t *testing.T) {
 	var value = ""
 
 	var config = &Config{
-		Arguments:   []string{"--verbose", "items", "add", "-f", "-c=9000", "--value=\"rofl\""},
+		// Arguments:   []string{"--verbose", "items", "add", "-f", "-c=9000", "--value=\"rofl\""},
+		Arguments:   []string{"help", "something"},
 		LongPrefix:  DefaultLongPrefix,
 		ShortPrefix: DefaultShortPrefix,
 		Globals: Options{
