@@ -44,10 +44,10 @@ func Parse(config *Config) (err error) {
 	if len(config.Arguments) == 0 {
 		return ErrNoArgs
 	}
-	if err = validateOptions(config.Globals); err != nil {
+	if err = ValidateOptions(config.Globals); err != nil {
 		return
 	}
-	if err = validateCommands(config.Commands); err != nil {
+	if err = ValidateCommands(config.Commands); err != nil {
 		return
 	}
 	if config.LongPrefix == "" {
@@ -67,11 +67,16 @@ func Parse(config *Config) (err error) {
 	return config.Commands.parse(config)
 }
 
-// validateOptions validates that options have unique and non-empty long names
+// ValidateOptions validates that options have unique and non-empty long names
 // in the set and that short names, if not empty, are unique as well.
 // Returns nil on success.
-func validateOptions(options Options) error {
+func ValidateOptions(options Options) error {
 	for _, option := range options {
+		switch option.(type) {
+		case *Boolean, *Optional, *Required, *Indexed, *Variadic:
+		default:
+			return errors.New("invalid option type, must be a pointer to one of supported option types")
+		}
 		if option.GetLongName() == "" {
 			return errors.New("an option with an empty long is defined")
 		}
@@ -93,22 +98,25 @@ func validateOptions(options Options) error {
 	return nil
 }
 
-// validateCommands validates that commands (and their sub command sets) have
+// ValidateCommands validates that commands (and their sub command sets) have
 // non-empty and unique names in their respective sets. Returns nil on success.
-func validateCommands(commands Commands) (err error) {
+func ValidateCommands(commands Commands) (err error) {
 	for _, command := range commands {
 		if command.Name == "" {
 			return errors.New("a command with an empty name is defined")
+		}
+		if command.Handler == nil {
+			return fmt.Errorf("command '%s' has no handler assigned", command.Name)
 		}
 		for _, other := range commands {
 			if other != command && other.Name == command.Name {
 				return fmt.Errorf("duplicate command name: %s", command.Name)
 			}
 		}
-		if err = validateOptions(command.Options); err != nil {
+		if err = ValidateOptions(command.Options); err != nil {
 			return
 		}
-		if err = validateCommands(command.SubCommands); err != nil {
+		if err = ValidateCommands(command.SubCommands); err != nil {
 			return
 		}
 	}

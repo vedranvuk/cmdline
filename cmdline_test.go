@@ -1,107 +1,304 @@
 package cmdline
 
 import (
-	"fmt"
-	"os"
+	"errors"
 	"testing"
+	"time"
 )
 
-func TestOptions(t *testing.T) {
+func TestChainA(t *testing.T) {
+	var e = errors.New("e")
 
-	var verbose = false
-	var force = false
-	var count = 0
-	var value = ""
+	if err := Parse(&Config{
+		Arguments: []string{"one", "two", "three"},
+		Commands: Commands{
+			{
+				Name:    "one",
+				Handler: NopHandler,
+				SubCommands: Commands{
+					{
+						Name:    "two",
+						Handler: NopHandler,
+						SubCommands: Commands{
+							{
+								Name: "three",
+								Handler: func(c Context) error {
+									return e
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}); err != e {
+		t.Fatal()
+	}
+}
 
-	var config = &Config{
-		// Arguments:   []string{"--verbose", "items", "add", "-f", "-c=9000", "--value=\"rofl\""},
-		Arguments:   []string{"help", "something"},
-		LongPrefix:  DefaultLongPrefix,
-		ShortPrefix: DefaultShortPrefix,
+func TestChainB(t *testing.T) {
+	var e = errors.New("e")
+
+	if err := Parse(&Config{
+		Arguments: []string{"one", "two"},
+		Commands: Commands{
+			{
+				Name:    "one",
+				Handler: NopHandler,
+				SubCommands: Commands{
+					{
+						Name: "two",
+						Handler: func(c Context) error {
+							return e
+						},
+						SubCommands: Commands{
+							{
+								Name:    "three",
+								Handler: NopHandler,
+							},
+						},
+					},
+				},
+			},
+		},
+	}); err != e {
+		t.Fatal()
+	}
+}
+
+func TestOptionsParsing(t *testing.T) {
+
+	var (
+		boolean  = false
+		optional = ""
+		required = 0
+		indexed  = ""
+		variadic = ""
+	)
+
+	if err := Parse(&Config{
+		Arguments: []string{"-b", "--optional=\"opt\"", "-r=42", "idxd", "one", "two", "three"},
 		Globals: Options{
 			&Boolean{
-				LongName:    "verbose",
-				ShortName:   "v",
-				Help:        "Be verbose.",
-				MappedValue: &verbose,
+				LongName:    "boolean",
+				ShortName:   "b",
+				MappedValue: &boolean,
+			},
+			&Optional{
+				LongName:    "optional",
+				ShortName:   "o",
+				MappedValue: &optional,
+			},
+			&Required{
+				LongName:    "required",
+				ShortName:   "r",
+				MappedValue: &required,
+			},
+			&Indexed{
+				Name:        "indexed",
+				MappedValue: &indexed,
+			},
+			&Variadic{
+				Name:        "variadic",
+				MappedValue: &variadic,
 			},
 		},
-		GlobalsHandler: func(c Context) error {
-			fmt.Printf("verbose requested.\n")
-			return nil
-		},
-		Commands: Commands{
-			&Command{
-				Name: "help",
-				Help: "Show help.",
-				Handler: func(c Context) error {
-					fmt.Printf("Help requested for: %s.\n", c.Value("topic"))
-					return nil
-				},
-				Options: Options{
-					&Variadic{
-						Name: "topic",
-						Help: "Help topic.",
-					},
-				},
-			},
-			&Command{
-				Name: "items",
-				Help: "Operate on items.",
-				Handler: func(c Context) error {
-					fmt.Printf("command: items\n")
-					return nil
-				},
-				SubCommands: Commands{
-					&Command{
-						Name: "add",
-						Help: "Add an item.",
-						Handler: func(c Context) error {
-							fmt.Printf("command: add (force: %t) (count: %t)\n", c.Parsed("force"), c.Parsed("count"))
-							return nil
-						},
-						Options: Options{
-							&Boolean{
-								LongName:    "force",
-								ShortName:   "f",
-								Help:        "Force it.",
-								MappedValue: &force,
-							},
-							&Optional{
-								LongName:    "count",
-								ShortName:   "c",
-								Help:        "Give a count.",
-								MappedValue: &count,
-							},
-							&Optional{
-								LongName:    "value",
-								ShortName:   "v",
-								Help:        "Give a value.",
-								MappedValue: &value,
-							},
-						},
-					},
-					&Command{
-						Name: "remove",
-						Help: "Remove an item.",
-						Handler: func(c Context) error {
-							fmt.Printf("command: remove\n")
-							return nil
-						},
-					},
-				},
-			},
-		},
-	}
-
-	PrintConfig(os.Stdout, config)
-
-	if err := Parse(config); err != nil {
+	}); err != nil {
 		t.Fatal(err)
 	}
+	if boolean != true {
+		t.Fatal("boolean")
+	}
+	if optional != "opt" {
+		t.Fatal("optional")
+	}
+	if required != 42 {
+		t.Fatal("required")
+	}
+	if indexed != "idxd" {
+		t.Fatal("indexed")
+	}
+	if variadic != "one two three" {
+		t.Fatal("variadic")
+	}
+}
 
-	fmt.Printf("verbose: %t\n", verbose)
-	fmt.Printf("force: %t\n", force)
-	fmt.Printf("count: %d\n", count)
-	fmt.Printf("value: %s\n", value)
+func TestMappedValues(t *testing.T) {
+
+	var (
+		Bool     bool          = false
+		Int      int           = 0
+		Int8     int8          = 0
+		Int16    int16         = 0
+		Int32    int32         = 0
+		Int64    int64         = 0
+		Uint     uint          = 0
+		Uint8    uint8         = 0
+		Uint16   uint16        = 0
+		Uint32   uint32        = 0
+		Uint64   uint64        = 0
+		Float32  float32       = 0.0
+		Float64  float64       = 0.0
+		String   string        = ""
+		Duration time.Duration = 0
+	)
+
+	if err := Parse(&Config{
+		Arguments: []string{
+			"--bool=true",
+			"--int=2",
+			"--int8=4",
+			"--int16=8",
+			"--int32=16",
+			"--int64=32",
+			"--uint=64",
+			"--uint8=128",
+			"--uint16=256",
+			"--uint32=512",
+			"--uint64=1024",
+			"--float32=3.14",
+			"--float64=1.16",
+			"--string=string",
+			"--duration=60s",
+		},
+		Globals: Options{
+			&Optional{
+				LongName:    "bool",
+				MappedValue: &Bool,
+			},
+			&Optional{
+				LongName:    "int",
+				MappedValue: &Int,
+			},
+			&Optional{
+				LongName:    "int8",
+				MappedValue: &Int8,
+			},
+			&Optional{
+				LongName:    "int16",
+				MappedValue: &Int16,
+			},
+			&Optional{
+				LongName:    "int32",
+				MappedValue: &Int32,
+			},
+			&Optional{
+				LongName:    "int64",
+				MappedValue: &Int64,
+			},
+			&Optional{
+				LongName:    "uint",
+				MappedValue: &Uint,
+			},
+			&Optional{
+				LongName:    "uint8",
+				MappedValue: &Uint8,
+			},
+			&Optional{
+				LongName:    "uint16",
+				MappedValue: &Uint16,
+			},
+			&Optional{
+				LongName:    "uint32",
+				MappedValue: &Uint32,
+			},
+			&Optional{
+				LongName:    "uint64",
+				MappedValue: &Uint64,
+			},
+			&Optional{
+				LongName:    "float32",
+				MappedValue: &Float32,
+			},
+			&Optional{
+				LongName:    "float64",
+				MappedValue: &Float64,
+			},
+			&Optional{
+				LongName:    "string",
+				MappedValue: &String,
+			},
+			&Optional{
+				LongName:    "duration",
+				MappedValue: &Duration,
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !Bool {
+		t.Fatal("bool")
+	}
+	if Int != 2 {
+		t.Fatal("int")
+	}
+	if Int8 != 4 {
+		t.Fatal("int8")
+	}
+	if Int16 != 8 {
+		t.Fatal("int16")
+	}
+	if Int32 != 16 {
+		t.Fatal("int32")
+	}
+	if Int64 != 32 {
+		t.Fatal("int64")
+	}
+	if Uint != 64 {
+		t.Fatal("uint")
+	}
+	if Uint8 != 128 {
+		t.Fatal("uint8")
+	}
+	if Uint16 != 256 {
+		t.Fatal("uint16")
+	}
+	if Uint32 != 512 {
+		t.Fatal("uint32")
+	}
+	if Uint64 != 1024 {
+		t.Fatal("uint64")
+	}
+	if Float32 != 3.14 {
+		t.Fatal("float32")
+	}
+	if Float64 != 1.16 {
+		t.Fatal("float64")
+	}
+	if String != "string" {
+		t.Fatal("string")
+	}
+	if Duration != 60*time.Second {
+		t.Fatal("duration")
+	}
+}
+
+type Custom struct{}
+
+func (self Custom) String() string {
+	return "42"
+}
+
+func (self *Custom) Set(s string) error {
+	if s != "42" {
+		return errors.New("fail")
+	}
+	return nil
+}
+
+func TestCustomMappedType(t *testing.T) {
+
+	var v = new(Custom)
+
+	if err := Parse(&Config{
+		Arguments: []string{"--custom=42"},
+		Globals: Options{
+			&Required{
+				LongName:    "custom",
+				MappedValue: v,
+			},
+		},
+	}); err != nil {
+		t.Fatal()
+	}
 }

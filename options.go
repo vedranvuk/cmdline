@@ -452,8 +452,7 @@ func (self Options) parse(config *Config) (err error) {
 		return nil
 	}
 	var opt Option
-For:
-	for {
+	for !config.Arguments.Eof() {
 		opt = nil
 
 		var key, val, assignment = strings.Cut(config.Arguments.Text(config), "=")
@@ -467,7 +466,12 @@ For:
 
 		switch kind := config.Arguments.Kind(config); kind {
 		case TextArgument:
-			opt = self.getNextUnparsedIndexed()
+			for _, v := range self {
+				if _, ok := v.(*Indexed); ok && !v.GetParsed() {
+					opt = v
+					break
+				}
+			}
 		case LongArgument:
 			if opt = self.FindLong(key); opt == nil {
 				return fmt.Errorf("option %s%s not registered", config.LongPrefix, key)
@@ -479,7 +483,13 @@ For:
 		}
 
 		if opt == nil {
-			if opt = self.getVariadic(); opt == nil {
+			for _, v := range self {
+				if _, ok := v.(*Variadic); ok {
+					opt = v
+					break
+				}
+			}
+			if opt == nil {
 				break
 			}
 		}
@@ -488,6 +498,9 @@ For:
 		case *Boolean:
 			o.Parsed = true
 		case *Optional:
+			if !assignment {
+				return fmt.Errorf("optional option '%s' requires a value", o.GetLongName())
+			}
 			o.RawValue = val
 			o.Parsed = true
 		case *Required:
@@ -503,7 +516,6 @@ For:
 			o.RawValue = strings.Join(config.Arguments, " ")
 			o.Parsed = true
 			config.Arguments.End()
-			break For
 		}
 
 		if err = self.rawToMapped(opt); err != nil {
@@ -525,22 +537,4 @@ For:
 	}
 
 	return
-}
-
-func (self Options) getNextUnparsedIndexed() Option {
-	for _, v := range self {
-		if _, ok := v.(Indexed); ok && !v.GetParsed() {
-			return v
-		}
-	}
-	return nil
-}
-
-func (self Options) getVariadic() Option {
-	for _, v := range self {
-		if _, ok := v.(*Variadic); ok {
-			return v
-		}
-	}
-	return nil
 }
