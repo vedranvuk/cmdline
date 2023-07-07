@@ -30,7 +30,6 @@ type Context interface {
 // the command chain execution.
 var NopHandler = func(Context) error { return nil }
 
-
 // Command defines a command invocable by name.
 type Command struct {
 	// Name is the name of the Command by which it is invoked from arguments.
@@ -49,16 +48,21 @@ type Command struct {
 	Options Options
 }
 
-// Parsed implements Context.Parsed for handlers of commands with no Options.
-// It is a no-op placeholder that returns false.
-func (self Command) Parsed(string) bool { return false }
-
-// Value implements Context.Value for handlers of commands with no Options.
-// It is a no-op that returns an empty string.
-func (self Command) Value(string) string { return "" }
-
 // Commands holds a set of Commands.
 type Commands []*Command
+
+// Count returns the number of defined commands in these Commands.
+func (self Commands) Count() int { return len(self) }
+
+// Get returns a Command by name or nil if not found.
+func (self Commands) Get(name string) *Command {
+	for i := 0; i < len(self); i++ {
+		if self[i].Name == name {
+			return self[i]
+		}
+	}
+	return nil
+}
 
 // Handle registers a new Command from specified name, shortHelp, longHelp and
 // Handler h and returns it. If the registration fails the function panics.
@@ -90,46 +94,26 @@ func (self Commands) Register(command *Command) Commands {
 	return self
 }
 
-// Count returns the number of defined commands in these Commands.
-func (self Commands) Count() int { return len(self) }
-
-// Get returns a Command by name or nil if not found.
-func (self Commands) Get(name string) *Command {
-	for i := 0; i < len(self); i++ {
-		if self[i].Name == name {
-			return self[i]
-		}
-	}
-	return nil
-}
-
-func (self Commands) parse(t *arguments) error {
+// parse parses self from args or returns an error.
+func (self Commands) parse(t *arguments) (err error) {
 	switch kind, name := t.Kind(), t.Text(); kind {
 	case argNone:
 		return nil
 	case argLong, argShort:
 		return errors.New("expected command name, got option")
 	case argText:
-		cmd := self.Get(name)
+		var cmd = self.Get(name)
 		if cmd == nil {
 			return fmt.Errorf("command '%s' not registered", name)
 		}
 		t.Next()
-		if cmd.Options != nil {
-			if err := cmd.Options.parse(t); err != nil {
-				return err
-			}
-			if err := cmd.Handler(cmd.Options); err != nil {
-				return err
-			}
-		} else {
-			if err := cmd.Handler(cmd); err != nil {
-				return err
-			}
+		if err = cmd.Options.parse(t); err != nil {
+			return
 		}
-		if cmd.SubCommands != nil && cmd.SubCommands.Count() > 0 {
-			return cmd.SubCommands.parse(t)
+		if err = cmd.Handler(cmd.Options); err != nil {
+			return
 		}
+		return cmd.SubCommands.parse(t)
 	}
 	return nil
 }

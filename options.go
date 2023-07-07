@@ -45,6 +45,16 @@ func (self Options) Get(key string) Option {
 	return nil
 }
 
+// Get returns an Option with given shortKey or nil if not found.
+func (self Options) GetShort(shortKey string) Option {
+	for i := 0; i < len(self); i++ {
+		if self[i].ShortKey() == shortKey {
+			return self[i]
+		}
+	}
+	return nil
+}
+
 // Boolean defines a boolean option.
 //
 // A Boolean option is an option that takes no argument and is simply marked as
@@ -343,7 +353,10 @@ type option struct {
 }
 
 // parse parses self from args or returns an error.
-func (self Options) parse(args *arguments) error {
+func (self Options) parse(args *arguments) (err error) {
+	if self.Count() == 0 {
+		return nil
+	}
 	var opt Option
 For:
 	for {
@@ -358,18 +371,17 @@ For:
 			if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
 				val = strings.TrimPrefix(strings.TrimSuffix(val, "\""), "\"")
 			}
-			val = strings.TrimSpace(val)
 		}
 
 		switch kind := args.Kind(); kind {
 		case argText:
 			opt = self.getNextUnparsedIndexed()
 		case argLong:
-			if opt = self.get(key, ""); opt == nil {
+			if opt = self.Get(key); opt == nil {
 				return fmt.Errorf("option --'%s' not registered", key)
 			}
 		case argShort:
-			if opt = self.get("", key); opt == nil {
+			if opt = self.GetShort(key); opt == nil {
 				return fmt.Errorf("option -'%s' not registered", key)
 			}
 		}
@@ -398,10 +410,11 @@ For:
 		case *Variadic:
 			o.raw = strings.Join(args.FromCurrent(), " ")
 			o.parsed = true
+			args.End()
 			break For
 		}
 
-		if err := self.rawToMapped(opt); err != nil {
+		if err = self.rawToMapped(opt); err != nil {
 			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.Value(), opt.Key(), err)
 		}
 
@@ -420,25 +433,7 @@ For:
 		}
 	}
 
-	return nil
-}
-
-func (self Options) get(long, short string) Option {
-	if long != "" {
-		for _, v := range self {
-			if v.Key() == long {
-				return v
-			}
-		}
-	}
-	if short != "" {
-		for _, v := range self {
-			if v.ShortKey() == short {
-				return v
-			}
-		}
-	}
-	return nil
+	return
 }
 
 func (self Options) getNextUnparsedIndexed() Option {

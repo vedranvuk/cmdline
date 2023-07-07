@@ -8,20 +8,6 @@ import (
 var (
 	// ErrNoArgs is returned by Parse if no arguments were given for parsing.
 	ErrNoArgs = errors.New("no arguments")
-	// ErrVariadic is returned by Parse to indicate the presence of a
-	// variadic option in an option set.
-	ErrVariadic = errors.New("variadic option")
-	// ErrNoHelp is returned by the standard HelpCommand if no help
-	// text is found for the query.
-	ErrNoHelp = errors.New("no help for given query")
-
-	// ErrInvoked may be returned by a Command Handler to indicate that the
-	// parsing should be stopped after this command, i.e., no sub commands will
-	// be further parsed after all the Option arguments were parsed.
-	//
-	// Use this in situations where an invocation of a command takes over
-	// complete program control and there is no need to parse sub commands.
-	ErrInvoked = errors.New("command invoked")
 )
 
 // Config is the configuration given to Parse.
@@ -71,28 +57,30 @@ const (
 // invocations. It may be in nil in which case an option in args before a
 // command invocation will produce an error.
 func Parse(config *Config) (err error) {
+
+	if len(config.Args) == 0 {
+		return ErrNoArgs
+	}
 	if config.LongPrefix == "" {
 		config.LongPrefix = DefaultLongPrefix
 	}
 	if config.ShortPrefix == "" {
 		config.ShortPrefix = DefaultShortPrefix
 	}
-	if len(config.Args) == 0 {
-		return ErrNoArgs
-	}
+
 	var args = newArguments(config.Args, config.LongPrefix, config.ShortPrefix)
+
 	if err = config.Globals.parse(args); err != nil {
 		return
 	}
-	// if config.GlobalsHandler != nil {
-	// 	if err = config.GlobalsHandler(config.Globals); err != nil {
-	// 		return err
-	// 	}
-	// }
-	if config.Commands != nil {
-		return config.Commands.parse(args)
+
+	if config.GlobalsHandler != nil {
+		if err = config.GlobalsHandler(config.Globals); err != nil {
+			return
+		}
 	}
-	return nil
+
+	return config.Commands.parse(args)
 }
 
 // argKind defines the kind of argument being parsed.
@@ -131,13 +119,8 @@ func newArguments(in []string, long, short string) *arguments {
 	}
 }
 
-// Raw returns unmodified current argument as given in input slice.
-func (self *arguments) Raw() string {
-	if self.Eof() {
-		return ""
-	}
-	return self.a[self.i]
-}
+// Count returns the argument count.
+func (self *arguments) Count() int { return len(self.a) }
 
 // Kind returns the current argument kind.
 func (self *arguments) Kind() (kind argKind) {
@@ -155,6 +138,14 @@ func (self *arguments) Kind() (kind argKind) {
 	return
 }
 
+// Raw returns unmodified current argument as given in input slice.
+func (self *arguments) Raw() string {
+	if self.Eof() {
+		return ""
+	}
+	return self.a[self.i]
+}
+
 // Text returns the current argument as text-only, stripped of prefix, if any.
 func (self *arguments) Text() string {
 	switch k := self.Kind(); k {
@@ -168,6 +159,10 @@ func (self *arguments) Text() string {
 	return ""
 }
 
+// FromCurrent returns a slice of wrapped arguments starting from and including
+// the current argument. If at EOF an empty slice is returned.
+func (self *arguments) FromCurrent() []string { return self.a[self.i:] }
+
 // Next advances current argument pointer to the next argument in the wrapped
 // arguments and returns self. If no arguments are left to advance to the
 // function is a no-op. Use Eof() to check if the arguments are exhausted.
@@ -179,12 +174,8 @@ func (self *arguments) Next() *arguments {
 	return self
 }
 
-// FromCurrent returns a slice of wrapped arguments starting from and including
-// the current argument. If at EOF an empty slice is returned.
-func (self *arguments) FromCurrent() []string { return self.a[self.i:] }
+// End moves the cursor past EOF.
+func (self *arguments) End() { self.i = self.c }
 
 // Eof returns true if current argument index is past argument count.
 func (self *arguments) Eof() bool { return self.i >= self.c }
-
-// Count returns the argument count.
-func (self *arguments) Count() int { return len(self.a) }

@@ -2,46 +2,65 @@ package cmdline
 
 import (
 	"fmt"
-	"os"
 	"testing"
 )
 
 func TestOptions(t *testing.T) {
 
-	var getOptions = func() *Options {
-		opts := new(Options)
-		opts.Boolean("verbose", "v", "Be verbose.", "Shows extra debug output.")
-		opts.Optional("force", "f", "Force it", "Force something several times.", "int")
-		opts.Optional("directory", "d", "dir name", "Enter directory name.", "string")
-		opts.Indexed("name", "Input name", "Input the name that is used for naming.", "string")
-		opts.Variadic("files", "Specify file names.", "A list of filenames to use.", "strings")
-		return opts
+	var config = &Config{
+		Args: []string{"items", "add", "-f"},
+		Commands: Commands{
+			&Command{
+				Name: "help",
+				Help: "Show help.",
+				Handler: func(c Context) error {
+					fmt.Printf("Help requested for: %s.\n", c.Value("topic"))
+					return nil
+				},
+				Options: Options{
+					&Variadic{
+						Name: "topic",
+						Help: "Help topic.",
+					},
+				},
+			},
+			&Command{
+				Name: "items",
+				Help: "Operate on items.",
+				Handler: func(c Context) error {
+					fmt.Printf("command: items\n")
+					return nil
+				},
+				SubCommands: Commands{
+					&Command{
+						Name: "add",
+						Help: "Add an item.",
+						Handler: func(c Context) error {
+							fmt.Printf("command: add (force: %t)\n", c.Parsed("force"))
+							return nil
+						},
+						Options: Options{
+							&Boolean{
+								LongName:  "force",
+								ShortName: "f",
+								Help:      "Force it.",
+							},
+						},
+					},
+					&Command{
+						Name: "remove",
+						Help: "Remove an item.",
+						Handler: func(c Context) error {
+							fmt.Printf("command: remove\n")
+							return nil
+						},
+					},
+				},
+			},
+		},
 	}
 
-	opts := getOptions()
-
-	args := []string{"-v", "--force", "-d=/home/yourname", "myname", "arg1", "arg2", "arg3"}
-
-	err := Parse(&Config{
-		Args:    args,
-		Globals: opts,
-	})
-	fmt.Printf("%#v\n", err)
-
-	for _, v := range opts.options {
-		fmt.Printf("%#v\n", v)
+	if err := Parse(config); err != nil {
+		t.Fatal(err)
 	}
-
-	opts = getOptions()
-	args = []string{}
-	err = Parse(&Config{
-		Args:    os.Args[1:],
-		Globals: opts,
-	})
-	fmt.Printf("%#v\n", err)
-	
-	for _, v := range opts.options {
-		fmt.Printf("%#v\n", v)
-	}
-
 }

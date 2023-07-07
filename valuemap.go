@@ -71,7 +71,9 @@ type Value interface {
 // under key.
 //
 // If the Option gets parsed the value will be set to the parsed Option's value.
-func (self Options) MapValue(key string, value Value) Options { return self.mapOption(key, value) }
+func (self Options) MapValue(key string, value Value) Options { 
+	return self.mapOption(key, value) 
+}
 
 // mapOption maps a value to an Option under key.
 func (self Options) mapOption(key string, value any) Options {
