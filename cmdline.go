@@ -2,7 +2,6 @@ package cmdline
 
 import (
 	"errors"
-	"strings"
 )
 
 var (
@@ -10,55 +9,39 @@ var (
 	ErrNoArgs = errors.New("no arguments")
 )
 
-// Config is the configuration given to Parse.
+// Config contains Command and global Option definitions, Arguments to parse 
+// and other options packed into a single struct for use as an argument to 
+// Parse methods.
 type Config struct {
-	// Args is the arguments to parse. This is usually set to os.Args[1:].
-	Args []string
-	// Commands is the Commands to parse. Optional.
-	Commands Commands
-	// Globals is the global Options to parse. Optional.
+	// Arguments are the arguments to parse. This is usually set to os.Args[1:].
+	Arguments Arguments
+	// Globals are the global Options, independant of any defined commands.
 	Globals Options
 	// GlobalsHandler is the handler for Globals.
-	// It gets invoked before any Commands handlers. Optional.
+	// It is optional and gets invoked before any commands are parsed.
 	GlobalsHandler Handler
-	// LongPrefix is the long Option prefix to use. Optional.
-	// Defaults to DefaultLongPrefix if empty.
+	// Commands is the root command set.
+	Commands Commands
+	// LongPrefix is the long Option prefix to use. It is optional and is
+	// defaulted to DefaultLongPrefix by Parse() if left empty.
 	LongPrefix string
-	// ShortPrefix is the short Option prefix to use. Optional.
-	// Defaults to DefaultShortPrefix if empty.
+	// ShortPrefix is the short Option prefix to use. It is optional and is
+	// defaulted to DefaultShortPrefix by Parse() if left empty.
 	ShortPrefix string
 }
 
 const (
-	// DefaultLongPrefix is the default prefix which specifies long option name, e.g.--verbose
+	// DefaultLongPrefix is the default prefix for long option names.
 	DefaultLongPrefix = "--"
-	// DefaultShortPrefix is the default prefix which specifies short option name, e.g. -v
+	// DefaultShortPrefix is the default prefix for short option names.
 	DefaultShortPrefix = "-"
 )
 
-// Parse parses args into specified command set and global options.
-// The command set must contain definition of commands to invoke if parsed from
-// args and globals flags contain Options that can be parsed before any command
-// invocation in args and can be inspected directly, post-parse.
-//
-// Both the command set and globals are optional and can be nil. If both are nil
-// parse will return an error.
-// By specifying only the globals Parse behaves much like std/flag package.
-//
-// Returns one of errors declared in this package, an error from a command
-// handler that broke the parse chain or nil if no errors occured.
-//
-// Args is usually os.Args[1:].
-//
-// Both set and globals are optional and can be nil but one must not be nil.
-//
-// .
-// Globals will receive options that were specified in args before command
-// invocations. It may be in nil in which case an option in args before a
-// command invocation will produce an error.
+// Parse parses config.Arguments into config.Globals then config.Commands.
+// It returns nil on success or an error if one occured.
 func Parse(config *Config) (err error) {
 
-	if len(config.Args) == 0 {
+	if len(config.Arguments) == 0 {
 		return ErrNoArgs
 	}
 	if config.LongPrefix == "" {
@@ -68,9 +51,7 @@ func Parse(config *Config) (err error) {
 		config.ShortPrefix = DefaultShortPrefix
 	}
 
-	var args = newArguments(config.Args, config.LongPrefix, config.ShortPrefix)
-
-	if err = config.Globals.parse(args); err != nil {
+	if err = config.Globals.parse(config); err != nil {
 		return
 	}
 
@@ -80,102 +61,12 @@ func Parse(config *Config) (err error) {
 		}
 	}
 
-	return config.Commands.parse(args)
+	return config.Commands.parse(config)
 }
 
-// argKind defines the kind of argument being parsed.
-type argKind int
+// validateOptions validates the specified options set. It returns nil if valid
+// or an error otherwise.
+func validateOptions(options Options) error {
 
-const (
-	// argNone indicates no argument.
-	argNone argKind = iota
-	// argLong indicates an argument with a long option prefix.
-	argLong
-	// argShort indicates an argument with a short option prefix.
-	argShort
-	// argText indicates a text argument with no prefix.
-	argText
-)
-
-// arguments wraps a slice of arguments to maintain a state for argument
-// itearation and inspection tools.
-type arguments struct {
-	a     []string
-	c     int
-	i     int
-	long  string
-	short string
+	return nil
 }
-
-// newArguments wraps in into arguments, sets long and short prefixes to
-// recognize and returns it.
-func newArguments(in []string, long, short string) *arguments {
-	return &arguments{
-		a:     in,
-		c:     len(in),
-		i:     0,
-		long:  long,
-		short: short,
-	}
-}
-
-// Count returns the argument count.
-func (self *arguments) Count() int { return len(self.a) }
-
-// Kind returns the current argument kind.
-func (self *arguments) Kind() (kind argKind) {
-	if self.Eof() {
-		return argNone
-	}
-	kind = argText
-	// in case of "-" as short and "--" as long, long wins.
-	if strings.HasPrefix(self.Raw(), self.short) {
-		kind = argShort
-	}
-	if strings.HasPrefix(self.Raw(), self.long) {
-		kind = argLong
-	}
-	return
-}
-
-// Raw returns unmodified current argument as given in input slice.
-func (self *arguments) Raw() string {
-	if self.Eof() {
-		return ""
-	}
-	return self.a[self.i]
-}
-
-// Text returns the current argument as text-only, stripped of prefix, if any.
-func (self *arguments) Text() string {
-	switch k := self.Kind(); k {
-	case argShort:
-		return string(self.Raw()[len(self.short):])
-	case argLong:
-		return string(self.Raw()[len(self.long):])
-	case argText:
-		return self.Raw()
-	}
-	return ""
-}
-
-// FromCurrent returns a slice of wrapped arguments starting from and including
-// the current argument. If at EOF an empty slice is returned.
-func (self *arguments) FromCurrent() []string { return self.a[self.i:] }
-
-// Next advances current argument pointer to the next argument in the wrapped
-// arguments and returns self. If no arguments are left to advance to the
-// function is a no-op. Use Eof() to check if the arguments are exhausted.
-func (self *arguments) Next() *arguments {
-	if self.Eof() {
-		return self
-	}
-	self.i++
-	return self
-}
-
-// End moves the cursor past EOF.
-func (self *arguments) End() { self.i = self.c }
-
-// Eof returns true if current argument index is past argument count.
-func (self *arguments) Eof() bool { return self.i >= self.c }

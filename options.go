@@ -1,27 +1,37 @@
 package cmdline
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 )
 
-// Option defines an option for a Command.
+// Option defines an option in a slice of Commands.
 type Option interface {
-	// Key returns the Option Key by which Option is addressed from
-	// Command Context. Option Key must be unique in an Options.
+	// GetLongName returns the Option GetLongName by which Option is addressed from
+	// Command Context. Option GetLongName must be unique in an Options.
 	//
-	// Options with both long and short names map their long name as the Key.
-	Key() string
-	// ShortKey returns the short form of the Option key. This is used only by
+	// Options with both long and short names map their long name as the GetLongName.
+	GetLongName() string
+	// GetShortName returns the short form of the Option key. This is used only by
 	// Boolean, Optional and Required options which can be addressed from
 	// arguments with a shorter, single character option name.
-	ShortKey() string
-	// Parsed returns true if the Option was parsed from the arguments.
-	Parsed() bool
-	// Raw returns the raw option value as a string.
-	Raw() string
-	// Value returns the value mapped to this Option. May be nil if unmapped.
-	Value() any
+	GetShortName() string
+	// GetParsed returns true if the Option was parsed from the arguments.
+	GetParsed() bool
+	// GetRawValue returns the raw option value as a string. Returns an empty string if
+	// option was not parsed, was not given an argument or is not applicable.
+	GetRawValue() string
+	// GetMappedValue returns the value mapped to this Option. May be nil if unmapped.
+	GetMappedValue() any
+}
+
+// State represents the Option parse state.
+type State struct {
+	Parsed   bool
+	RawValue string
 }
 
 // Options contains and manages a set of Options.
@@ -32,27 +42,58 @@ type Option interface {
 // Command. For more info see Parse function.
 type Options []Option
 
-// Returns number of options in self.
+// Returns number of registered options in self.
 func (self Options) Count() int { return len(self) }
 
-// Get returns an Option with given key or nil if not found.
-func (self Options) Get(key string) Option {
+// FindLong returns an Option with given longName or nil if not found.
+func (self Options) FindLong(longName string) Option {
 	for i := 0; i < len(self); i++ {
-		if self[i].Key() == key {
+		if self[i].GetLongName() == longName {
 			return self[i]
 		}
 	}
 	return nil
 }
 
-// Get returns an Option with given shortKey or nil if not found.
-func (self Options) GetShort(shortKey string) Option {
+// Get returns an Option with given shortName or nil if not found.
+func (self Options) FindShort(shortName string) Option {
 	for i := 0; i < len(self); i++ {
-		if self[i].ShortKey() == shortKey {
+		if self[i].GetShortName() == shortName {
 			return self[i]
 		}
 	}
 	return nil
+}
+
+// Parsed implements Context.Parsed.
+func (self Options) Parsed(longName string) bool {
+	for _, v := range self {
+		if v.GetLongName() == longName {
+			return v.GetParsed()
+		}
+	}
+	return false
+}
+
+// Parsed implements Context.Value.
+func (self Options) Value(longName string) string {
+	for _, v := range self {
+		if v.GetLongName() == longName {
+			return v.GetRawValue()
+		}
+	}
+	return ""
+}
+
+// Register registers an Option in these Options where option must be one of
+// the Option definition structs in this file. It returns self.
+// Option parameter must be one of:
+//
+//	Boolean, Optional, Required, Indexed, Variadic
+func (self Options) Register(option Option) Options {
+	// TODO: Check short key dulicates.
+	self = append(self, option)
+	return self
 }
 
 // Boolean defines a boolean option.
@@ -70,9 +111,12 @@ type Boolean struct {
 	ShortName string
 	// Help is the short help text.
 	Help string
+	// MappedValue is an optional *bool that will be set to true if this option
+	// gets parsed.
+	MappedValue any
 
-	// option embeds the base option properties.
-	option
+	// State embeds the base State properties.
+	State
 }
 
 // Flag defines an option that is not required. It takes no arguments.
@@ -102,9 +146,12 @@ type Optional struct {
 	ShortName string
 	// Help is the short help text.
 	Help string
+	// MappedValue is an optional pointer to one of supported variable types
+	// that the option will get parsed into. For details see rawToMapped.
+	MappedValue any
 
-	// option embeds the base option properties.
-	option
+	// State embeds the base State properties.
+	State
 }
 
 // Optional defines an option that is not required.
@@ -136,9 +183,12 @@ type Required struct {
 	ShortName string
 	// Help is the short help text.
 	Help string
+	// MappedValue is an optional pointer to one of supported variable types
+	// that the option will get parsed into. For details see rawToMapped.
+	MappedValue any
 
-	// option embeds the base option properties.
-	option
+	// State embeds the base State properties.
+	State
 }
 
 // Required defines an option that is required. It takes one argument that is
@@ -182,9 +232,12 @@ type Indexed struct {
 	Name string
 	// Help is the short help text.
 	Help string
+	// MappedValue is an optional pointer to one of supported variable types
+	// that the option will get parsed into. For details see rawToMapped.
+	MappedValue any
 
-	// option embeds the base option properties.
-	option
+	// State embeds the base State properties.
+	State
 }
 
 // Indexed defines an option that is passed by index, i.e. the value for the
@@ -215,9 +268,12 @@ type Variadic struct {
 	Name string
 	// Help is the short help text.
 	Help string
+	// MappedValue is an optional pointer to one of supported variable types
+	// that the option will get parsed into. For details see rawToMapped.
+	MappedValue any
 
-	// option embeds the base option properties.
-	option
+	// State embeds the base State properties.
+	State
 }
 
 // Variadic defines an option that treats any and all arguments left to parse as
@@ -236,124 +292,162 @@ func (self Options) Variadic(name, help string) Options {
 
 // Following funcs implement the Option interface on all five Option types.
 
-func (self Boolean) Key() string  { return self.LongName }
-func (self Optional) Key() string { return self.LongName }
-func (self Required) Key() string { return self.LongName }
-func (self Indexed) Key() string  { return self.Name }
-func (self Variadic) Key() string { return self.Name }
+func (self Boolean) GetLongName() string  { return self.LongName }
+func (self Optional) GetLongName() string { return self.LongName }
+func (self Required) GetLongName() string { return self.LongName }
+func (self Indexed) GetLongName() string  { return self.Name }
+func (self Variadic) GetLongName() string { return self.Name }
 
-func (self Boolean) ShortKey() string  { return self.ShortName }
-func (self Optional) ShortKey() string { return self.ShortName }
-func (self Required) ShortKey() string { return self.ShortName }
-func (self Indexed) ShortKey() string  { return "" }
-func (self Variadic) ShortKey() string { return "" }
+func (self Boolean) GetShortName() string  { return self.ShortName }
+func (self Optional) GetShortName() string { return self.ShortName }
+func (self Required) GetShortName() string { return self.ShortName }
+func (self Indexed) GetShortName() string  { return self.Name }
+func (self Variadic) GetShortName() string { return self.Name }
 
-func (self Boolean) Parsed() bool  { return self.option.parsed }
-func (self Optional) Parsed() bool { return self.option.parsed }
-func (self Required) Parsed() bool { return self.option.parsed }
-func (self Indexed) Parsed() bool  { return self.option.parsed }
-func (self Variadic) Parsed() bool { return self.option.parsed }
+func (self Boolean) GetParsed() bool  { return self.State.Parsed }
+func (self Optional) GetParsed() bool { return self.State.Parsed }
+func (self Required) GetParsed() bool { return self.State.Parsed }
+func (self Indexed) GetParsed() bool  { return self.State.Parsed }
+func (self Variadic) GetParsed() bool { return self.State.Parsed }
 
-func (self Boolean) Raw() string  { return self.option.raw }
-func (self Optional) Raw() string { return self.option.raw }
-func (self Required) Raw() string { return self.option.raw }
-func (self Indexed) Raw() string  { return self.option.raw }
-func (self Variadic) Raw() string { return self.option.raw }
+func (self Boolean) GetRawValue() string  { return self.State.RawValue }
+func (self Optional) GetRawValue() string { return self.State.RawValue }
+func (self Required) GetRawValue() string { return self.State.RawValue }
+func (self Indexed) GetRawValue() string  { return self.State.RawValue }
+func (self Variadic) GetRawValue() string { return self.State.RawValue }
 
-func (self Boolean) Value() any  { return self.option.value }
-func (self Optional) Value() any { return self.option.value }
-func (self Required) Value() any { return self.option.value }
-func (self Indexed) Value() any  { return self.option.value }
-func (self Variadic) Value() any { return self.option.value }
+func (self Boolean) GetMappedValue() any  { return self.MappedValue }
+func (self Optional) GetMappedValue() any { return self.MappedValue }
+func (self Required) GetMappedValue() any { return self.MappedValue }
+func (self Indexed) GetMappedValue() any  { return self.MappedValue }
+func (self Variadic) GetMappedValue() any { return self.MappedValue }
 
-// Register registers an Option in these Options where option must be one of
-// the Option definition structs in this file. It returns self.
-// Option parameter must be one of:
+// Value defines a type that is capable of parsing a string into a value it
+// represents.
+type Value interface {
+	// String must return a string representation of the type.
+	String() string
+	// Set must parse a string into self or return an error if it failed.
+	Set(string) error
+}
+
+// rawToMapped converts option.State.RawValue to option.MappedValue if option's
+// raw value is not nil.
 //
-//	Boolean, Optional, Required, Indexed, Variadic
-func (self Options) Register(option Option) Options {
-	// TODO: Check short key dulicates.
-	switch o := option.(type) {
+// Returns nil on success of no value mapped.. Returns a non nil error on
+// failed conversion only.
+//
+// option.MappedValue must be a pointer to a supported type or any type that
+// supports conversion from a string by implementing the Value interface.
+//
+// Supported types are:
+// *bool, *string, *float32, *float64,
+// *int, *int8, *int16, *1nt32, *int64,
+// *uint, *uint8, *uint16, *u1nt32, *uint64
+// *time.Duration, any type supporting Value interface.
+//
+// If an unsupported type was set as option.MappedValue Parse will return a
+// conversion error.
+func (self Options) rawToMapped(option Option) (err error) {
+
+	var (
+		mapped = option.GetMappedValue()
+		raw    = option.GetRawValue()
+	)
+	if mapped == nil {
+		return nil
+	}
+	if _, ok := option.(*Boolean); !ok {
+		if raw == "" {
+			return nil
+		}
+	}
+	switch p := option.(type) {
 	case *Boolean:
-		self.validateKey(o.LongName)
-		self.validateShortKey(o.ShortName)
+		return setMappedValue(p.MappedValue, raw)
 	case *Optional:
-		self.validateKey(o.LongName)
-		self.validateShortKey(o.ShortName)
+		return setMappedValue(p.MappedValue, raw)
 	case *Required:
-		self.validateKey(o.LongName)
-		self.validateShortKey(o.ShortName)
+		return setMappedValue(p.MappedValue, raw)
 	case *Indexed:
-		self.validateKey(o.Name)
+		return setMappedValue(p.MappedValue, raw)
 	case *Variadic:
-		self.validateKey(o.Name)
-		for _, f := range self {
-			if _, variadic := f.(*Variadic); variadic {
-				panic("option set already contains a variadic option")
-			}
+		return setMappedValue(p.MappedValue, raw)
+	}
+	return nil
+}
+
+func setMappedValue(v any, s string) (err error) {
+	switch p := v.(type) {
+	case *bool:
+		*p = true
+	case *string:
+		*p = s
+	case *int:
+		var v int64
+		if v, err = strconv.ParseInt(s, 10, 0); err == nil {
+			*p = int(v)
 		}
+	case *uint:
+		var v uint64
+		if v, err = strconv.ParseUint(s, 10, 0); err == nil {
+			*p = uint(v)
+		}
+	case *int8:
+		var v int64
+		if v, err = strconv.ParseInt(s, 10, 8); err == nil {
+			*p = int8(v)
+		}
+	case *uint8:
+		var v uint64
+		if v, err = strconv.ParseUint(s, 10, 8); err == nil {
+			*p = uint8(v)
+		}
+	case *int16:
+		var v int64
+		if v, err = strconv.ParseInt(s, 10, 16); err == nil {
+			*p = int16(v)
+		}
+	case *uint16:
+		var v uint64
+		if v, err = strconv.ParseUint(s, 10, 16); err == nil {
+			*p = uint16(v)
+		}
+	case *int32:
+		var v int64
+		if v, err = strconv.ParseInt(s, 10, 32); err == nil {
+			*p = int32(v)
+		}
+	case *uint32:
+		var v uint64
+		if v, err = strconv.ParseUint(s, 10, 32); err == nil {
+			*p = uint32(v)
+		}
+	case *int64:
+		*p, err = strconv.ParseInt(s, 10, 64)
+	case *uint64:
+		*p, err = strconv.ParseUint(s, 10, 64)
+	case *float32:
+		var v float64
+		if v, err = strconv.ParseFloat(s, 64); err == nil {
+			*p = float32(v)
+		}
+	case *float64:
+		*p, err = strconv.ParseFloat(s, 64)
+	case *time.Duration:
+		*p, err = time.ParseDuration(s)
 	default:
-		panic("unsupported option type")
-	}
-	self = append(self, option)
-	return self
-}
-
-// validateKey panics if key is empty or non-unique in these Options.
-func (self Options) validateKey(key string) {
-	if key == "" {
-		panic("empty option key")
-	}
-	for _, option := range self {
-		if option.Key() == key {
-			panic(fmt.Sprintf("duplicate option key: %s", key))
+		if v, ok := p.(Value); ok {
+			err = v.Set(s)
+		} else {
+			return errors.New("unsupported mapped value")
 		}
 	}
-}
-
-// validateKey panics if short key is empty or non-unique in these Options.
-func (self Options) validateShortKey(key string) {
-	if key == "" {
-		panic("empty option short key")
-	}
-	if len(key) > 1 {
-		panic("short keys may be one character strings")
-	}
-	for _, option := range self {
-		if k := option.ShortKey(); k != "" && k == key {
-			panic(fmt.Sprintf("duplicate option short key: %s", key))
-		}
-	}
-}
-
-// Parsed implements Context.Parsed.
-func (self Options) Parsed(name string) bool {
-	for _, v := range self {
-		if v.Key() == name {
-			return v.Parsed()
-		}
-	}
-	return false
-}
-
-// Parsed implements Context.Value.
-func (self Options) Value(name string) string {
-	for _, v := range self {
-		if v.Key() == name {
-			return v.Raw()
-		}
-	}
-	return ""
-}
-
-type option struct {
-	parsed bool
-	raw    string
-	value  any
+	return
 }
 
 // parse parses self from args or returns an error.
-func (self Options) parse(args *arguments) (err error) {
+func (self Options) parse(config *Config) (err error) {
 	if self.Count() == 0 {
 		return nil
 	}
@@ -362,27 +456,25 @@ For:
 	for {
 		opt = nil
 
-		// Parse out and clean option key and its optional value.
-		var key, val, assignment = strings.Cut(args.Text(), "=")
+		var key, val, assignment = strings.Cut(config.Arguments.Text(config), "=")
 		key = strings.TrimSpace(key)
 		if assignment {
 			val = strings.TrimSpace(val)
-			// naive dequoting: remove leading and trailing quotes if paired.
 			if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
 				val = strings.TrimPrefix(strings.TrimSuffix(val, "\""), "\"")
 			}
 		}
 
-		switch kind := args.Kind(); kind {
-		case argText:
+		switch kind := config.Arguments.Kind(config); kind {
+		case TextArgument:
 			opt = self.getNextUnparsedIndexed()
-		case argLong:
-			if opt = self.Get(key); opt == nil {
-				return fmt.Errorf("option --'%s' not registered", key)
+		case LongArgument:
+			if opt = self.FindLong(key); opt == nil {
+				return fmt.Errorf("option %s%s not registered", config.LongPrefix, key)
 			}
-		case argShort:
-			if opt = self.GetShort(key); opt == nil {
-				return fmt.Errorf("option -'%s' not registered", key)
+		case ShortArgument:
+			if opt = self.FindShort(key); opt == nil {
+				return fmt.Errorf("option %s%s not registered", config.ShortPrefix, key)
 			}
 		}
 
@@ -394,41 +486,40 @@ For:
 
 		switch o := opt.(type) {
 		case *Boolean:
-			o.parsed = true
+			o.Parsed = true
 		case *Optional:
-			o.raw = val
-			o.parsed = true
+			o.RawValue = val
+			o.Parsed = true
 		case *Required:
 			if !assignment {
-				return fmt.Errorf("required option '%s' requires a value", o.Key())
+				return fmt.Errorf("required option '%s' requires a value", o.GetLongName())
 			}
-			o.raw = val
-			o.parsed = true
+			o.RawValue = val
+			o.Parsed = true
 		case *Indexed:
-			o.raw = key
-			o.parsed = true
+			o.RawValue = key
+			o.Parsed = true
 		case *Variadic:
-			o.raw = strings.Join(args.FromCurrent(), " ")
-			o.parsed = true
-			args.End()
+			o.RawValue = strings.Join(config.Arguments, " ")
+			o.Parsed = true
+			config.Arguments.End()
 			break For
 		}
 
 		if err = self.rawToMapped(opt); err != nil {
-			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.Value(), opt.Key(), err)
+			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.GetMappedValue(), opt.GetLongName(), err)
 		}
 
-		args.Next()
+		config.Arguments.Next()
 	}
 
-	// Check required options are parsed.
 	for _, opt = range self {
-		if !opt.Parsed() {
+		if !opt.GetParsed() {
 			if _, ok := opt.(*Required); ok {
-				return fmt.Errorf("required option '%s' not parsed", opt.Key())
+				return fmt.Errorf("required option '%s' not parsed", opt.GetLongName())
 			}
 			if _, ok := opt.(*Indexed); ok {
-				return fmt.Errorf("indexed option '%s' not parsed", opt.Key())
+				return fmt.Errorf("indexed option '%s' not parsed", opt.GetLongName())
 			}
 		}
 	}
@@ -438,7 +529,7 @@ For:
 
 func (self Options) getNextUnparsedIndexed() Option {
 	for _, v := range self {
-		if _, ok := v.(Indexed); ok && !v.Parsed() {
+		if _, ok := v.(Indexed); ok && !v.GetParsed() {
 			return v
 		}
 	}

@@ -18,10 +18,11 @@ type Handler func(Context) error
 // Context is passed to the Command handler.
 // It allows for inspection of the Command's Options.
 type Context interface {
-	// Parsed returns truth if an Option with specified Key was parsed.
+	// Parsed returns true if an Option with specified LongName/Name was parsed.
 	Parsed(string) bool
-	// Value returns value of the Option with specified name.
-	// Unparsed Options return an empty value.
+	// Value returns the string value that was passed to the Option under
+	// specified Name/LongName. Unparsed Options and options that take no
+	// arguments return an empty string.
 	Value(string) string
 }
 
@@ -51,11 +52,11 @@ type Command struct {
 // Commands holds a set of Commands.
 type Commands []*Command
 
-// Count returns the number of defined commands in these Commands.
+// Count returns the number of defined commands in self.
 func (self Commands) Count() int { return len(self) }
 
-// Get returns a Command by name or nil if not found.
-func (self Commands) Get(name string) *Command {
+// Find returns a Command from self by name or nil if not found.
+func (self Commands) Find(name string) *Command {
 	for i := 0; i < len(self); i++ {
 		if self[i].Name == name {
 			return self[i]
@@ -64,8 +65,8 @@ func (self Commands) Get(name string) *Command {
 	return nil
 }
 
-// Handle registers a new Command from specified name, shortHelp, longHelp and
-// Handler h and returns it. If the registration fails the function panics.
+// Handle is a helper that registers a new Command from arguments.
+// It returns the newly registered command.
 func (self Commands) Handle(name, help string, h Handler) (c *Command) {
 	c = &Command{
 		Name:    name,
@@ -76,44 +77,32 @@ func (self Commands) Handle(name, help string, h Handler) (c *Command) {
 	return
 }
 
-// Register registers a fully defined Command and returns self. If the
-// registration fails the function panics.
+// Register is a helper that registers a fully defined Command and returns self.
 func (self Commands) Register(command *Command) Commands {
-	if command.Name == "" {
-		panic("command name is empty")
-	}
-	for i := 0; i < len(self); i++ {
-		if self[i].Name == command.Name {
-			panic(fmt.Sprintf("command '%s' already registered", command.Name))
-		}
-	}
-	if command.Handler == nil {
-		panic(fmt.Sprintf("command '%s' nil registering nil handler", command.Name))
-	}
 	self = append(self, command)
 	return self
 }
 
-// parse parses self from args or returns an error.
-func (self Commands) parse(t *arguments) (err error) {
-	switch kind, name := t.Kind(), t.Text(); kind {
-	case argNone:
+// parse parses self from config or returns an error.
+func (self Commands) parse(config *Config) (err error) {
+	switch kind, name := config.Arguments.Kind(config), config.Arguments.Text(config); kind {
+	case NoArgument:
 		return nil
-	case argLong, argShort:
+	case LongArgument, ShortArgument:
 		return errors.New("expected command name, got option")
-	case argText:
-		var cmd = self.Get(name)
+	case TextArgument:
+		var cmd = self.Find(name)
 		if cmd == nil {
 			return fmt.Errorf("command '%s' not registered", name)
 		}
-		t.Next()
-		if err = cmd.Options.parse(t); err != nil {
+		config.Arguments.Next()
+		if err = cmd.Options.parse(config); err != nil {
 			return
 		}
 		if err = cmd.Handler(cmd.Options); err != nil {
 			return
 		}
-		return cmd.SubCommands.parse(t)
+		return cmd.SubCommands.parse(config)
 	}
 	return nil
 }
