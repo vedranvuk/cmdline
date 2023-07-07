@@ -1,7 +1,6 @@
 package cmdline
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"testing"
