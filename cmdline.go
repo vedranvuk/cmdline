@@ -3,6 +3,8 @@ package cmdline
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 var (
@@ -23,6 +25,9 @@ type Config struct {
 	GlobalsHandler Handler
 	// Commands is the root command set.
 	Commands Commands
+	// Usage is a function to call when no arguments are given to Parse.
+	// If unset, invokes the built in Usage func.
+	Usage func()
 	// LongPrefix is the long Option prefix to use. It is optional and is
 	// defaulted to DefaultLongPrefix by Parse() if left empty.
 	LongPrefix string
@@ -42,7 +47,14 @@ const (
 // It returns nil on success or an error if one occured.
 func Parse(config *Config) (err error) {
 	if len(config.Arguments) == 0 {
-		return ErrNoArgs
+		if config.Usage != nil {
+			config.Usage()
+			return
+		}
+		var exe = filepath.Base(os.Args[0])
+		fmt.Printf("Usage: %s [global-options] [...command [...command-option]]\n", exe)
+		fmt.Printf("Type '%s help' for more help.\n", exe)
+		return nil
 	}
 	if err = ValidateOptions(config.Globals); err != nil {
 		return

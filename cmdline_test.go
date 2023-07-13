@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestChainA(t *testing.T) {
+func TestLastInChain(t *testing.T) {
 	var e = errors.New("e")
 
 	if err := Parse(&Config{
@@ -36,7 +36,7 @@ func TestChainA(t *testing.T) {
 	}
 }
 
-func TestChainB(t *testing.T) {
+func TestMidInChain(t *testing.T) {
 	var e = errors.New("e")
 
 	if err := Parse(&Config{
