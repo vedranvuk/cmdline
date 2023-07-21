@@ -8,38 +8,46 @@ import (
 	"time"
 )
 
-// Option defines an option in a slice of Options.
+// Option abstracts an option in a slice of Options.
 type Option interface {
-	// GetLongName returns the Option GetLongName by which Option is addressed from
-	// Command Context. Option GetLongName must be unique in an Options.
-	//
-	// Options with both long and short names map their long name as the GetLongName.
+	// GetLongName returns the Option LongName.
+	// LongName represents the long Option name format.
+	// Option GetLongName must be unique in its parent Options.
+	// Option with both LongName and ShortName maps its LongName to GetLongName.
+	// Option with Name maps Name to both GetLongName and GetShortName.
 	GetLongName() string
-	// GetShortName returns the short form of the Option key. This is used only by
-	// Boolean, Optional and Required options which can be addressed from
-	// arguments with a shorter, single character option name.
+	// GetShortName returns the Option ShortName.
+	// ShortName represents the short Option name format.
+	// Option GetLongName must be unique in its parent Options.
+	// Option with both LongName and ShortName maps its LongName to GetLongName.
+	// Option with Name maps Name to both GetLongName and GetShortName.
 	GetShortName() string
-	// GetParsed returns true if the Option was parsed from the arguments.
-	GetParsed() bool
-	// GetRawValues returns the raw option value as a string. Returns an empty string if
-	// option was not parsed, was not given an argument or is not applicable.
+	// GetIsParsed returns Option.State.IsParsed. It indicates if the Option was
+	// parsed from arguments. For Repeated Option it indicates that the Option
+	// was parsed at least once.
+	GetIsParsed() bool
+	// GetRawValues returns the raw option value as a string. Returns an empty
+	// slice if Option was not parsed, was not given a argument as a value or
+	// the Option takes no values (i.e. Boolean Option).
 	GetRawValues() RawValues
-	// GetMappedValue returns the value mapped to this Option. May be nil if unmapped.
+	// GetMappedValue returns Option.MappedValue, the variable mapped to this
+	// Option. May be nil if unmapped.
 	GetMappedValue() any
 }
 
-// State represents the Option parse state.
+// State represents the Option parse state and is embedded at the top level
+// in all supported Option types.
 type State struct {
-	Parsed    bool
+	// IsParsed will be set to true if the Option gets parsed from arguments.
+	IsParsed bool
+	// RawValues will contain any arguments given as a value to the Option.
 	RawValues []string
 }
 
 // Options contains and manages a set of Options.
 //
-// An Options is used either as a set of Options for a Command or for Global
-// Options which may be parsed before any Command invocation and are inspected
-// separately instead of through a Command Context as they apply to no specific
-// Command. For more info see Parse function.
+// Options set is used to define a set of Options for a Command of the global
+// Options not applicable to any specific Command - or all.
 type Options []Option
 
 // Returns number of registered options in self.
@@ -69,7 +77,7 @@ func (self Options) FindShort(shortName string) Option {
 func (self Options) IsParsed(longName string) bool {
 	for _, v := range self {
 		if v.GetLongName() == longName {
-			return v.GetParsed()
+			return v.GetIsParsed()
 		}
 	}
 	return false
@@ -335,12 +343,12 @@ func (self *Repeated) GetShortName() string { return self.ShortName }
 func (self *Indexed) GetShortName() string  { return self.Name }
 func (self *Variadic) GetShortName() string { return self.Name }
 
-func (self *Boolean) GetParsed() bool  { return self.State.Parsed }
-func (self *Optional) GetParsed() bool { return self.State.Parsed }
-func (self *Required) GetParsed() bool { return self.State.Parsed }
-func (self *Repeated) GetParsed() bool { return self.State.Parsed }
-func (self *Indexed) GetParsed() bool  { return self.State.Parsed }
-func (self *Variadic) GetParsed() bool { return self.State.Parsed }
+func (self *Boolean) GetIsParsed() bool  { return self.State.IsParsed }
+func (self *Optional) GetIsParsed() bool { return self.State.IsParsed }
+func (self *Required) GetIsParsed() bool { return self.State.IsParsed }
+func (self *Repeated) GetIsParsed() bool { return self.State.IsParsed }
+func (self *Indexed) GetIsParsed() bool  { return self.State.IsParsed }
+func (self *Variadic) GetIsParsed() bool { return self.State.IsParsed }
 
 func (self *Boolean) GetRawValues() RawValues  { return self.State.RawValues }
 func (self *Optional) GetRawValues() RawValues { return self.State.RawValues }
@@ -505,7 +513,7 @@ func (self Options) parse(config *Config) (err error) {
 		switch kind := config.Arguments.Kind(config); kind {
 		case TextArgument:
 			for _, v := range self {
-				if _, ok := v.(*Indexed); ok && !v.GetParsed() {
+				if _, ok := v.(*Indexed); ok && !v.GetIsParsed() {
 					opt = v
 					break
 				}
@@ -534,7 +542,7 @@ func (self Options) parse(config *Config) (err error) {
 
 		// Fail if non *Repeatable option and parsed multiple times.
 		if _, ok := opt.(*Repeated); !ok {
-			if opt.GetParsed()  {
+			if opt.GetIsParsed() {
 				return fmt.Errorf("option %s specified multiple times", opt.GetLongName())
 			}
 		}
@@ -542,31 +550,31 @@ func (self Options) parse(config *Config) (err error) {
 		switch o := opt.(type) {
 		case *Boolean:
 
-			o.Parsed = true
+			o.IsParsed = true
 		case *Optional:
 			if !assignment {
 				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
 			}
 			o.RawValues = append(o.RawValues, val)
-			o.Parsed = true
+			o.IsParsed = true
 		case *Required:
 			if !assignment {
 				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
 			}
 			o.RawValues = append(o.RawValues, val)
-			o.Parsed = true
+			o.IsParsed = true
 		case *Repeated:
 			if !assignment {
 				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
 			}
 			o.RawValues = append(o.RawValues, val)
-			o.Parsed = true
+			o.IsParsed = true
 		case *Indexed:
 			o.RawValues = append(o.RawValues, key)
-			o.Parsed = true
+			o.IsParsed = true
 		case *Variadic:
 			o.RawValues = append(o.RawValues, config.Arguments...)
-			o.Parsed = true
+			o.IsParsed = true
 			config.Arguments.End()
 		}
 
@@ -577,9 +585,9 @@ func (self Options) parse(config *Config) (err error) {
 		config.Arguments.Next()
 	}
 
-	if config.FailOnUnparsedRequiredOption {
+	if config.NoFailOnUnparsedRequired {
 		for _, opt = range self {
-			if !opt.GetParsed() {
+			if !opt.GetIsParsed() {
 				if _, ok := opt.(*Required); ok {
 					return fmt.Errorf("required option '%s' not parsed", opt.GetLongName())
 				}
