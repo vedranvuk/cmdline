@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Option defines an option in a slice of Commands.
+// Option defines an option in a slice of Options.
 type Option interface {
 	// GetLongName returns the Option GetLongName by which Option is addressed from
 	// Command Context. Option GetLongName must be unique in an Options.
@@ -21,17 +21,17 @@ type Option interface {
 	GetShortName() string
 	// GetParsed returns true if the Option was parsed from the arguments.
 	GetParsed() bool
-	// GetRawValue returns the raw option value as a string. Returns an empty string if
+	// GetRawValues returns the raw option value as a string. Returns an empty string if
 	// option was not parsed, was not given an argument or is not applicable.
-	GetRawValue() string
+	GetRawValues() RawValues
 	// GetMappedValue returns the value mapped to this Option. May be nil if unmapped.
 	GetMappedValue() any
 }
 
 // State represents the Option parse state.
 type State struct {
-	Parsed   bool
-	RawValue string
+	Parsed    bool
+	RawValues []string
 }
 
 // Options contains and manages a set of Options.
@@ -65,8 +65,8 @@ func (self Options) FindShort(shortName string) Option {
 	return nil
 }
 
-// Parsed implements Context.Parsed.
-func (self Options) Parsed(longName string) bool {
+// IsParsed implements Context.IsParseded.
+func (self Options) IsParsed(longName string) bool {
 	for _, v := range self {
 		if v.GetLongName() == longName {
 			return v.GetParsed()
@@ -75,14 +75,14 @@ func (self Options) Parsed(longName string) bool {
 	return false
 }
 
-// Parsed implements Context.Value.
-func (self Options) Value(longName string) string {
+// Parsed implements Context.RawValues.
+func (self Options) RawValues(longName string) RawValues {
 	for _, v := range self {
 		if v.GetLongName() == longName {
-			return v.GetRawValue()
+			return v.GetRawValues()
 		}
 	}
-	return ""
+	return nil
 }
 
 // Register registers an Option in these Options where option must be one of
@@ -257,7 +257,7 @@ func (self Options) Indexed(name, help string) Options {
 // A Variadic Option is an option that takes any and all unparsed arguments as
 // an single argument to this Option.
 //
-// For that reason a Variadic Option's Parent Commands may have no Sub-Commands.
+// For that reason a Variadic Option's Parent Options may have no Sub-Options.
 //
 // The arguments consumed by this Option are retrievable via Command Context by
 // Name of this Option and are returned as a space delimited string.
@@ -292,35 +292,35 @@ func (self Options) Variadic(name, help string) Options {
 
 // Following funcs implement the Option interface on all five Option types.
 
-func (self Boolean) GetLongName() string  { return self.LongName }
-func (self Optional) GetLongName() string { return self.LongName }
-func (self Required) GetLongName() string { return self.LongName }
-func (self Indexed) GetLongName() string  { return self.Name }
-func (self Variadic) GetLongName() string { return self.Name }
+func (self *Boolean) GetLongName() string  { return self.LongName }
+func (self *Optional) GetLongName() string { return self.LongName }
+func (self *Required) GetLongName() string { return self.LongName }
+func (self *Indexed) GetLongName() string  { return self.Name }
+func (self *Variadic) GetLongName() string { return self.Name }
 
-func (self Boolean) GetShortName() string  { return self.ShortName }
-func (self Optional) GetShortName() string { return self.ShortName }
-func (self Required) GetShortName() string { return self.ShortName }
-func (self Indexed) GetShortName() string  { return self.Name }
-func (self Variadic) GetShortName() string { return self.Name }
+func (self *Boolean) GetShortName() string  { return self.ShortName }
+func (self *Optional) GetShortName() string { return self.ShortName }
+func (self *Required) GetShortName() string { return self.ShortName }
+func (self *Indexed) GetShortName() string  { return self.Name }
+func (self *Variadic) GetShortName() string { return self.Name }
 
-func (self Boolean) GetParsed() bool  { return self.State.Parsed }
-func (self Optional) GetParsed() bool { return self.State.Parsed }
-func (self Required) GetParsed() bool { return self.State.Parsed }
-func (self Indexed) GetParsed() bool  { return self.State.Parsed }
-func (self Variadic) GetParsed() bool { return self.State.Parsed }
+func (self *Boolean) GetParsed() bool  { return self.State.Parsed }
+func (self *Optional) GetParsed() bool { return self.State.Parsed }
+func (self *Required) GetParsed() bool { return self.State.Parsed }
+func (self *Indexed) GetParsed() bool  { return self.State.Parsed }
+func (self *Variadic) GetParsed() bool { return self.State.Parsed }
 
-func (self Boolean) GetRawValue() string  { return self.State.RawValue }
-func (self Optional) GetRawValue() string { return self.State.RawValue }
-func (self Required) GetRawValue() string { return self.State.RawValue }
-func (self Indexed) GetRawValue() string  { return self.State.RawValue }
-func (self Variadic) GetRawValue() string { return self.State.RawValue }
+func (self *Boolean) GetRawValues() RawValues  { return self.State.RawValues }
+func (self *Optional) GetRawValues() RawValues { return self.State.RawValues }
+func (self *Required) GetRawValues() RawValues { return self.State.RawValues }
+func (self *Indexed) GetRawValues() RawValues  { return self.State.RawValues }
+func (self *Variadic) GetRawValues() RawValues { return self.State.RawValues }
 
-func (self Boolean) GetMappedValue() any  { return self.MappedValue }
-func (self Optional) GetMappedValue() any { return self.MappedValue }
-func (self Required) GetMappedValue() any { return self.MappedValue }
-func (self Indexed) GetMappedValue() any  { return self.MappedValue }
-func (self Variadic) GetMappedValue() any { return self.MappedValue }
+func (self *Boolean) GetMappedValue() any  { return self.MappedValue }
+func (self *Optional) GetMappedValue() any { return self.MappedValue }
+func (self *Required) GetMappedValue() any { return self.MappedValue }
+func (self *Indexed) GetMappedValue() any  { return self.MappedValue }
+func (self *Variadic) GetMappedValue() any { return self.MappedValue }
 
 // Value defines a type that is capable of parsing a string into a value it
 // represents.
@@ -328,7 +328,7 @@ type Value interface {
 	// String must return a string representation of the type.
 	String() string
 	// Set must parse a string into self or return an error if it failed.
-	Set(string) error
+	Set(RawValues) error
 }
 
 // rawToMapped converts option.State.RawValue to option.MappedValue if option's
@@ -344,7 +344,7 @@ type Value interface {
 // *bool, *string, *float32, *float64,
 // *int, *int8, *int16, *1nt32, *int64,
 // *uint, *uint8, *uint16, *u1nt32, *uint64
-// *time.Duration, any type supporting Value interface.
+// *time.Duration, *[]string, and any type supporting Value interface.
 //
 // If an unsupported type was set as option.MappedValue Parse will return a
 // conversion error.
@@ -352,13 +352,13 @@ func (self Options) rawToMapped(option Option) (err error) {
 
 	var (
 		mapped = option.GetMappedValue()
-		raw    = option.GetRawValue()
+		raw    = option.GetRawValues()
 	)
 	if mapped == nil {
 		return nil
 	}
 	if _, ok := option.(*Boolean); !ok {
-		if raw == "" {
+		if len(raw) == 0 {
 			return nil
 		}
 	}
@@ -377,68 +377,70 @@ func (self Options) rawToMapped(option Option) (err error) {
 	return nil
 }
 
-func setMappedValue(v any, s string) (err error) {
+func setMappedValue(v any, raw RawValues) (err error) {
 	switch p := v.(type) {
 	case *bool:
 		*p = true
 	case *string:
-		*p = s
+		*p = raw.First()
 	case *int:
 		var v int64
-		if v, err = strconv.ParseInt(s, 10, 0); err == nil {
+		if v, err = strconv.ParseInt(raw.First(), 10, 0); err == nil {
 			*p = int(v)
 		}
 	case *uint:
 		var v uint64
-		if v, err = strconv.ParseUint(s, 10, 0); err == nil {
+		if v, err = strconv.ParseUint(raw.First(), 10, 0); err == nil {
 			*p = uint(v)
 		}
 	case *int8:
 		var v int64
-		if v, err = strconv.ParseInt(s, 10, 8); err == nil {
+		if v, err = strconv.ParseInt(raw.First(), 10, 8); err == nil {
 			*p = int8(v)
 		}
 	case *uint8:
 		var v uint64
-		if v, err = strconv.ParseUint(s, 10, 8); err == nil {
+		if v, err = strconv.ParseUint(raw.First(), 10, 8); err == nil {
 			*p = uint8(v)
 		}
 	case *int16:
 		var v int64
-		if v, err = strconv.ParseInt(s, 10, 16); err == nil {
+		if v, err = strconv.ParseInt(raw.First(), 10, 16); err == nil {
 			*p = int16(v)
 		}
 	case *uint16:
 		var v uint64
-		if v, err = strconv.ParseUint(s, 10, 16); err == nil {
+		if v, err = strconv.ParseUint(raw.First(), 10, 16); err == nil {
 			*p = uint16(v)
 		}
 	case *int32:
 		var v int64
-		if v, err = strconv.ParseInt(s, 10, 32); err == nil {
+		if v, err = strconv.ParseInt(raw.First(), 10, 32); err == nil {
 			*p = int32(v)
 		}
 	case *uint32:
 		var v uint64
-		if v, err = strconv.ParseUint(s, 10, 32); err == nil {
+		if v, err = strconv.ParseUint(raw.First(), 10, 32); err == nil {
 			*p = uint32(v)
 		}
 	case *int64:
-		*p, err = strconv.ParseInt(s, 10, 64)
+		*p, err = strconv.ParseInt(raw.First(), 10, 64)
 	case *uint64:
-		*p, err = strconv.ParseUint(s, 10, 64)
+		*p, err = strconv.ParseUint(raw.First(), 10, 64)
 	case *float32:
 		var v float64
-		if v, err = strconv.ParseFloat(s, 64); err == nil {
+		if v, err = strconv.ParseFloat(raw.First(), 64); err == nil {
 			*p = float32(v)
 		}
 	case *float64:
-		*p, err = strconv.ParseFloat(s, 64)
+		*p, err = strconv.ParseFloat(raw.First(), 64)
+	case *[]string:
+		*p = append(*p, raw...)
 	case *time.Duration:
-		*p, err = time.ParseDuration(s)
+		*p, err = time.ParseDuration(raw.First())
 	default:
 		if v, ok := p.(Value); ok {
-			err = v.Set(s)
+			err = v.Set(raw)
 		} else {
 			return errors.New("unsupported mapped value")
 		}
@@ -501,19 +503,19 @@ func (self Options) parse(config *Config) (err error) {
 			if !assignment {
 				return fmt.Errorf("optional option '%s' requires a value", o.GetLongName())
 			}
-			o.RawValue = val
+			o.RawValues = append(o.RawValues, val)
 			o.Parsed = true
 		case *Required:
 			if !assignment {
 				return fmt.Errorf("required option '%s' requires a value", o.GetLongName())
 			}
-			o.RawValue = val
+			o.RawValues = append(o.RawValues, val)
 			o.Parsed = true
 		case *Indexed:
-			o.RawValue = key
+			o.RawValues = append(o.RawValues, key)
 			o.Parsed = true
 		case *Variadic:
-			o.RawValue = strings.Join(config.Arguments, " ")
+			o.RawValues = append(o.RawValues, config.Arguments...)
 			o.Parsed = true
 			config.Arguments.End()
 		}
@@ -525,13 +527,15 @@ func (self Options) parse(config *Config) (err error) {
 		config.Arguments.Next()
 	}
 
-	for _, opt = range self {
-		if !opt.GetParsed() {
-			if _, ok := opt.(*Required); ok {
-				return fmt.Errorf("required option '%s' not parsed", opt.GetLongName())
-			}
-			if _, ok := opt.(*Indexed); ok {
-				return fmt.Errorf("indexed option '%s' not parsed", opt.GetLongName())
+	if config.FailOnUnparsedRequiredOption {
+		for _, opt = range self {
+			if !opt.GetParsed() {
+				if _, ok := opt.(*Required); ok {
+					return fmt.Errorf("required option '%s' not parsed", opt.GetLongName())
+				}
+				if _, ok := opt.(*Indexed); ok {
+					return fmt.Errorf("indexed option '%s' not parsed", opt.GetLongName())
+				}
 			}
 		}
 	}

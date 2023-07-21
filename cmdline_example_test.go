@@ -54,7 +54,7 @@ func ExampleParse() {
 						Name: "add",
 						Help: "Add an item.",
 						Handler: func(c cmdline.Context) error {
-							fmt.Printf("command: add (force: %t) (count: %t)\n", c.Parsed("force"), c.Parsed("count"))
+							fmt.Printf("command: add (force: %t) (count: %t)\n", c.IsParsed("force"), c.IsParsed("count"))
 							return nil
 						},
 						Options: cmdline.Options{

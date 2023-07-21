@@ -1,6 +1,7 @@
 package cmdline
 
 import (
+	"context"
 	"errors"
 	"fmt"
 )
@@ -15,16 +16,40 @@ import (
 // execution and the error is pushed back to the Set.Parse() caller.
 type Handler func(Context) error
 
-// Context is passed to the Command handler.
+// Context is passed to the Command handler. It waraps the standard Context.
 // It allows for inspection of the Command's Options.
+// CIsParsed should respect the Context's timeout.
 type Context interface {
-	// Parsed returns true if an Option with specified LongName/Name was parsed.
-	Parsed(string) bool
+	// Context embeds the standard Context.
+	context.Context
+	// IsParsed returns true if an Option with specified name was parsed.
+	//
+	// Options with both Long and Short names use Long names to match against
+	// the option name given to this method.
+	IsParsed(string) bool
 	// Value returns the string value that was passed to the Option under
 	// specified Name/LongName. Unparsed Options and options that take no
 	// arguments return an empty string.
-	Value(string) string
+	RawValues(string) RawValues
 }
+
+// RawValues is a slice of strings representing arguments passed to an Option.
+// It implements several utilities for retrieving values.
+type RawValues []string
+
+// First returns the first value in self or an empty string if empty.
+func (self RawValues) First() string {
+	if len(self) > 0 {
+		return self[0]
+	}
+	return ""
+}
+
+// Count returns number of items in self.
+func (self RawValues) Count() int { return len(self) }
+
+// IsEmpty returns true if RawValues are empty.
+func (self RawValues) IsEmpty() bool { return len(self) == 0 }
 
 // NopHandler is an no-op handler that just returns a nil error.
 // It can be used as a placeholder to skip command implementation and continue
@@ -47,6 +72,9 @@ type Command struct {
 	SubCommands Commands
 	// Options are this Command's options. Options are optional :|
 	Options Options
+
+	// executed is true if the command was parsed from arguments.
+	executed bool
 }
 
 // Commands holds a set of Commands.
@@ -63,6 +91,33 @@ func (self Commands) Find(name string) *Command {
 		}
 	}
 	return nil
+}
+
+// VisitCommandFunc is a prototype of a function called for each Command visited.
+// It must return true to continue enumeration.
+type VisitCommandFunc func(c *Command) bool
+
+// Visit calls f for each command in self, recursively.
+func (self Commands) Walk(f VisitCommandFunc) { walkCommands(self, f, true, true) }
+
+// VisitExecuted calls f for each executed command in self, recursively.
+func (self Commands) WalkExecuted(f VisitCommandFunc) { walkCommands(self, f, true, false) }
+
+// VisitNotExecuted calls f for eachnot executed command in self, recursively.
+func (self Commands) WalkNotExecuted(f VisitCommandFunc) { walkCommands(self, f, false, true) }
+
+// walk walks c calling f for each.
+func walkCommands(c Commands, f func(c *Command) bool, executed, notexecuted bool) {
+	for _, cmd := range c {
+		if cmd.executed && executed || !cmd.executed && notexecuted {
+			if !f(cmd) {
+				break
+			}
+		}
+		if cmd.SubCommands.Count() > 0 {
+			walkCommands(cmd.SubCommands, f, executed, notexecuted)
+		}
+	}
 }
 
 // Handle is a helper that registers a new Command from arguments.
@@ -99,10 +154,21 @@ func (self Commands) parse(config *Config) (err error) {
 		if err = cmd.Options.parse(config); err != nil {
 			return
 		}
-		if err = cmd.Handler(cmd.Options); err != nil {
+		var wrapper = &contextWrapper{
+			config.context,
+			cmd.Options,
+		}
+			if err = cmd.Handler(wrapper); err != nil {
 			return
 		}
 		return cmd.SubCommands.parse(config)
 	}
 	return nil
+}
+
+// contextWrapper wraps the standard Context and Options to imlement 
+// cmdline.Context.
+type contextWrapper struct {
+	context.Context
+	Options
 }

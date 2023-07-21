@@ -2,6 +2,7 @@ package cmdline
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -73,7 +74,7 @@ func TestOptionsParsing(t *testing.T) {
 		optional = ""
 		required = 0
 		indexed  = ""
-		variadic = ""
+		variadic = []string{}
 	)
 
 	if err := Parse(&Config{
@@ -118,7 +119,7 @@ func TestOptionsParsing(t *testing.T) {
 	if indexed != "idxd" {
 		t.Fatal("indexed")
 	}
-	if variadic != "one two three" {
+	if strings.Join(variadic, " ") != "one two three" {
 		t.Fatal("variadic")
 	}
 }
@@ -279,8 +280,8 @@ func (self Custom) String() string {
 	return "42"
 }
 
-func (self *Custom) Set(s string) error {
-	if s != "42" {
+func (self *Custom) Set(v RawValues) error {
+	if v.First() != "42" {
 		return errors.New("fail")
 	}
 	return nil

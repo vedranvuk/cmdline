@@ -1,6 +1,7 @@
 package cmdline
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,13 @@ import (
 var (
 	// ErrNoArgs is returned by Parse if no arguments were given for parsing.
 	ErrNoArgs = errors.New("no arguments")
+)
+
+const (
+	// DefaultLongPrefix is the default prefix for long option names.
+	DefaultLongPrefix = "--"
+	// DefaultShortPrefix is the default prefix for short option names.
+	DefaultShortPrefix = "-"
 )
 
 // Config contains Command and global Option definitions, Arguments to parse
@@ -28,27 +36,36 @@ type Config struct {
 	// Usage is a function to call when no arguments are given to Parse.
 	// If unset, invokes the built in Usage func.
 	Usage func()
+	// FailOnUnparsedRequiredOption if true, will return an error if a
+	// Required or Indexed option was not parsed from arguments.
+	// Default: true
+	FailOnUnparsedRequiredOption bool
 	// LongPrefix is the long Option prefix to use. It is optional and is
 	// defaulted to DefaultLongPrefix by Parse() if left empty.
 	LongPrefix string
 	// ShortPrefix is the short Option prefix to use. It is optional and is
 	// defaulted to DefaultShortPrefix by Parse() if left empty.
 	ShortPrefix string
-}
 
-const (
-	// DefaultLongPrefix is the default prefix for long option names.
-	DefaultLongPrefix = "--"
-	// DefaultShortPrefix is the default prefix for short option names.
-	DefaultShortPrefix = "-"
-)
+	// context is the context passed to all commands being executed.
+	context context.Context
+}
 
 // Parse parses config.Arguments into config.Globals then config.Commands.
 // It returns nil on success or an error if one occured.
-func Parse(config *Config) (err error) {
-	if len(config.Arguments) == 0 {
-		if config.Usage != nil {
-			config.Usage()
+func Parse(config *Config) error { return config.Parse(context.Background()) }
+
+// Parse parses config.Arguments into config.Globals then config.Commands.
+// It returns nil on success or an error if one occured.
+func ParseCtx(ctx context.Context, config *Config) error { return config.Parse(ctx) }
+
+// Parse parses self.Arguments into self.Globals then self.Commands.
+// It returns nil on success or an error if one occured.
+func (self *Config) Parse(ctx context.Context) (err error) {
+	self.context = ctx
+	if len(self.Arguments) == 0 {
+		if self.Usage != nil {
+			self.Usage()
 			return
 		}
 		var exe = filepath.Base(os.Args[0])
@@ -56,81 +73,29 @@ func Parse(config *Config) (err error) {
 		fmt.Printf("Type '%s help' for more help.\n", exe)
 		return nil
 	}
-	if err = ValidateOptions(config.Globals); err != nil {
+	if err = ValidateOptions(self.Globals); err != nil {
 		return
 	}
-	if err = ValidateCommands(config.Commands); err != nil {
+	if err = ValidateCommands(self.Commands); err != nil {
 		return
 	}
-	if config.LongPrefix == "" {
-		config.LongPrefix = DefaultLongPrefix
+	if self.LongPrefix == "" {
+		self.LongPrefix = DefaultLongPrefix
 	}
-	if config.ShortPrefix == "" {
-		config.ShortPrefix = DefaultShortPrefix
+	if self.ShortPrefix == "" {
+		self.ShortPrefix = DefaultShortPrefix
 	}
-	if err = config.Globals.parse(config); err != nil {
+	if err = self.Globals.parse(self); err != nil {
 		return
 	}
-	if config.GlobalsHandler != nil {
-		if err = config.GlobalsHandler(config.Globals); err != nil {
+	var wrapper = &contextWrapper{
+		self.context,
+		self.Globals,
+	}
+	if self.GlobalsHandler != nil {
+		if err = self.GlobalsHandler(wrapper); err != nil {
 			return
 		}
 	}
-	return config.Commands.parse(config)
-}
-
-// ValidateOptions validates that options have unique and non-empty long names
-// in the set and that short names, if not empty, are unique as well.
-// Returns nil on success.
-func ValidateOptions(options Options) error {
-	for _, option := range options {
-		switch option.(type) {
-		case *Boolean, *Optional, *Required, *Indexed, *Variadic:
-		default:
-			return errors.New("invalid option type, must be a pointer to one of supported option types")
-		}
-		if option.GetLongName() == "" {
-			return errors.New("an option with an empty long is defined")
-		}
-		for _, other := range options {
-			if other != option && other.GetLongName() == option.GetLongName() {
-				return fmt.Errorf("duplicate option long name: %s", option.GetLongName())
-			}
-		}
-		if option.GetShortName() != "" {
-			for _, other := range options {
-				if other != option && other.GetShortName() != "" {
-					if other.GetShortName() == option.GetShortName() {
-						return fmt.Errorf("duplicate option long name: %s", option.GetLongName())
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// ValidateCommands validates that commands (and their sub command sets) have
-// non-empty and unique names in their respective sets. Returns nil on success.
-func ValidateCommands(commands Commands) (err error) {
-	for _, command := range commands {
-		if command.Name == "" {
-			return errors.New("a command with an empty name is defined")
-		}
-		if command.Handler == nil {
-			return fmt.Errorf("command '%s' has no handler assigned", command.Name)
-		}
-		for _, other := range commands {
-			if other != command && other.Name == command.Name {
-				return fmt.Errorf("duplicate command name: %s", command.Name)
-			}
-		}
-		if err = ValidateOptions(command.Options); err != nil {
-			return
-		}
-		if err = ValidateCommands(command.SubCommands); err != nil {
-			return
-		}
-	}
-	return nil
+	return self.Commands.parse(self)
 }
