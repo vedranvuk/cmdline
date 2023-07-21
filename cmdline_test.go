@@ -2,6 +2,7 @@ package cmdline
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -311,4 +312,216 @@ func TestCustomMappedType(t *testing.T) {
 	}); err != nil {
 		t.Fatal()
 	}
+}
+
+func TestPrint(t *testing.T) {
+	var config = &Config{
+		LongPrefix:  DefaultLongPrefix,
+		ShortPrefix: DefaultShortPrefix,
+		Globals: Options{
+			&Boolean{
+				LongName:  "boolean",
+				ShortName: "b",
+				Help:      "A Boolean Option.",
+			},
+			&Optional{
+				LongName:  "optional",
+				ShortName: "o",
+				Help:      "An Optional Option.",
+			},
+			&Required{
+				LongName:  "required",
+				ShortName: "r",
+				Help:      "A Required Option.",
+			},
+			&Indexed{
+				Name: "indexed",
+				Help: "An Indexed Option.",
+			},
+			&Repeated{
+				LongName:  "repeated",
+				ShortName: "p",
+				Help:      "A Repeated Option.",
+			},
+			&Variadic{
+				Name: "variadic",
+				Help: "A Variadic Option.",
+			},
+		},
+		Commands: Commands{
+			{
+				Name: "one",
+				Help: "Command One.",
+				Options: Options{
+					&Boolean{
+						LongName:  "boolean",
+						ShortName: "b",
+						Help:      "A Boolean Option.",
+					},
+					&Optional{
+						LongName:  "optional",
+						ShortName: "o",
+						Help:      "An Optional Option.",
+					},
+					&Required{
+						LongName:  "required",
+						ShortName: "r",
+						Help:      "A Required Option.",
+					},
+					&Indexed{
+						Name: "indexed",
+						Help: "An Indexed Option.",
+					},
+					&Repeated{
+						LongName:  "repeated",
+						ShortName: "p",
+						Help:      "A Repeated Option.",
+					},
+					&Variadic{
+						Name: "variadic",
+						Help: "A Variadic Option.",
+					},
+				},
+				SubCommands: Commands{
+					{
+						Name: "one",
+						Help: "Command One.",
+						Options: Options{
+							&Boolean{
+								LongName:  "boolean",
+								ShortName: "b",
+								Help:      "A Boolean Option.",
+							},
+							&Optional{
+								LongName:  "optional",
+								ShortName: "o",
+								Help:      "An Optional Option.",
+							},
+							&Required{
+								LongName:  "required",
+								ShortName: "r",
+								Help:      "A Required Option.",
+							},
+							&Indexed{
+								Name: "indexed",
+								Help: "An Indexed Option.",
+							},
+							&Repeated{
+								LongName:  "repeated",
+								ShortName: "p",
+								Help:      "A Repeated Option.",
+							},
+							&Variadic{
+								Name: "variadic",
+								Help: "A Variadic Option.",
+							},
+						},
+					},
+					{
+						Name: "two",
+						Help: "Command Two.",
+						Options: Options{
+							&Boolean{
+								LongName:  "boolean",
+								ShortName: "b",
+								Help:      "A Boolean Option.",
+							},
+							&Optional{
+								LongName:  "optional",
+								ShortName: "o",
+								Help:      "An Optional Option.",
+							},
+							&Required{
+								LongName:  "required",
+								ShortName: "r",
+								Help:      "A Required Option.",
+							},
+							&Indexed{
+								Name: "indexed",
+								Help: "An Indexed Option.",
+							},
+							&Repeated{
+								LongName:  "repeated",
+								ShortName: "p",
+								Help:      "A Repeated Option.",
+							},
+							&Variadic{
+								Name: "variadic",
+								Help: "A Variadic Option.",
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "two",
+				Help: "Command Two.",
+				Options: Options{
+					&Boolean{
+						LongName:  "boolean",
+						ShortName: "b",
+						Help:      "A Boolean Option.",
+					},
+					&Optional{
+						LongName:  "optional",
+						ShortName: "o",
+						Help:      "An Optional Option.",
+					},
+					&Required{
+						LongName:  "required",
+						ShortName: "r",
+						Help:      "A Required Option.",
+					},
+					&Indexed{
+						Name: "indexed",
+						Help: "An Indexed Option.",
+					},
+					&Repeated{
+						LongName:  "repeated",
+						ShortName: "p",
+						Help:      "A Repeated Option.",
+					},
+					&Variadic{
+						Name: "variadic",
+						Help: "A Variadic Option.",
+					},
+				},
+			},
+			{
+				Name: "three",
+				Help: "Command Three.",
+				Options: Options{
+					&Boolean{
+						LongName:  "boolean",
+						ShortName: "b",
+						Help:      "A Boolean Option.",
+					},
+					&Optional{
+						LongName:  "optional",
+						ShortName: "o",
+						Help:      "An Optional Option.",
+					},
+					&Required{
+						LongName:  "required",
+						ShortName: "r",
+						Help:      "A Required Option.",
+					},
+					&Indexed{
+						Name: "indexed",
+						Help: "An Indexed Option.",
+					},
+					&Repeated{
+						LongName:  "repeated",
+						ShortName: "p",
+						Help:      "A Repeated Option.",
+					},
+					&Variadic{
+						Name: "variadic",
+						Help: "A Variadic Option.",
+					},
+				},
+			},
+		},
+	}
+	PrintConfig(os.Stdout, config)
 }
