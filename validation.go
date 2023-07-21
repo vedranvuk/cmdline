@@ -11,7 +11,7 @@ import (
 func ValidateOptions(options Options) error {
 	for _, option := range options {
 		switch option.(type) {
-		case *Boolean, *Optional, *Required, *Indexed, *Variadic:
+		case *Boolean, *Optional, *Required, *Indexed, *Repeated, *Variadic:
 		default:
 			return errors.New("invalid option type, must be a pointer to one of supported option types")
 		}

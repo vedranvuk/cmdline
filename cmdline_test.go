@@ -73,12 +73,13 @@ func TestOptionsParsing(t *testing.T) {
 		boolean  = false
 		optional = ""
 		required = 0
+		repeated = []string{}
 		indexed  = ""
 		variadic = []string{}
 	)
 
 	if err := Parse(&Config{
-		Arguments: []string{"-b", "--optional=\"opt\"", "-r=42", "idxd", "one", "two", "three"},
+		Arguments: []string{"-b", "--optional=\"opt\"", "-r=42", "--repeated=1", "-p=2", "idxd", "one", "two", "three"},
 		Globals: Options{
 			&Boolean{
 				LongName:    "boolean",
@@ -94,6 +95,11 @@ func TestOptionsParsing(t *testing.T) {
 				LongName:    "required",
 				ShortName:   "r",
 				MappedValue: &required,
+			},
+			&Repeated{
+				LongName:    "repeated",
+				ShortName:   "p",
+				MappedValue: &repeated,
 			},
 			&Indexed{
 				Name:        "indexed",
@@ -115,6 +121,9 @@ func TestOptionsParsing(t *testing.T) {
 	}
 	if required != 42 {
 		t.Fatal("required")
+	}
+	if strings.Join(repeated, " ") != "1 2" {
+		t.Fatal("repeated")
 	}
 	if indexed != "idxd" {
 		t.Fatal("indexed")

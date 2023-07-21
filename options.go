@@ -252,6 +252,35 @@ func (self Options) Indexed(name, help string) Options {
 	})
 }
 
+// Repeated option is an optional option that can be specified multiple times.
+type Repeated struct {
+	// LongName is the long, more descriptive option name. It must contain no
+	// spaces and must be unique in an Options. It is used as the key to
+	// retrieve this option state from its Command context.
+	// An argument with a long prefix is matched against this property.
+	LongName string
+	// ShortName is the short option name consisting of a single alphanumeric.
+	// An argument with a short prefix is matched against this property.
+	ShortName string
+	// Help is the short help text.
+	Help string
+	// MappedValue is an optional pointer to one of supported variable types
+	// that the option will get parsed into. For details see rawToMapped.
+	MappedValue any
+
+	// State embeds the base State properties.
+	State
+}
+
+// Repeated defines a repeatable option.
+func (self Options) Repeated(longName, shortName, help string) Options {
+	return self.Register(&Repeated{
+		LongName:  longName,
+		ShortName: shortName,
+		Help:      help,
+	})
+}
+
 // Variadic defines a variadic option.
 //
 // A Variadic Option is an option that takes any and all unparsed arguments as
@@ -295,30 +324,35 @@ func (self Options) Variadic(name, help string) Options {
 func (self *Boolean) GetLongName() string  { return self.LongName }
 func (self *Optional) GetLongName() string { return self.LongName }
 func (self *Required) GetLongName() string { return self.LongName }
+func (self *Repeated) GetLongName() string { return self.LongName }
 func (self *Indexed) GetLongName() string  { return self.Name }
 func (self *Variadic) GetLongName() string { return self.Name }
 
 func (self *Boolean) GetShortName() string  { return self.ShortName }
 func (self *Optional) GetShortName() string { return self.ShortName }
 func (self *Required) GetShortName() string { return self.ShortName }
+func (self *Repeated) GetShortName() string { return self.ShortName }
 func (self *Indexed) GetShortName() string  { return self.Name }
 func (self *Variadic) GetShortName() string { return self.Name }
 
 func (self *Boolean) GetParsed() bool  { return self.State.Parsed }
 func (self *Optional) GetParsed() bool { return self.State.Parsed }
 func (self *Required) GetParsed() bool { return self.State.Parsed }
+func (self *Repeated) GetParsed() bool { return self.State.Parsed }
 func (self *Indexed) GetParsed() bool  { return self.State.Parsed }
 func (self *Variadic) GetParsed() bool { return self.State.Parsed }
 
 func (self *Boolean) GetRawValues() RawValues  { return self.State.RawValues }
 func (self *Optional) GetRawValues() RawValues { return self.State.RawValues }
 func (self *Required) GetRawValues() RawValues { return self.State.RawValues }
+func (self *Repeated) GetRawValues() RawValues { return self.State.RawValues }
 func (self *Indexed) GetRawValues() RawValues  { return self.State.RawValues }
 func (self *Variadic) GetRawValues() RawValues { return self.State.RawValues }
 
 func (self *Boolean) GetMappedValue() any  { return self.MappedValue }
 func (self *Optional) GetMappedValue() any { return self.MappedValue }
 func (self *Required) GetMappedValue() any { return self.MappedValue }
+func (self *Repeated) GetMappedValue() any { return self.MappedValue }
 func (self *Indexed) GetMappedValue() any  { return self.MappedValue }
 func (self *Variadic) GetMappedValue() any { return self.MappedValue }
 
@@ -371,6 +405,8 @@ func (self Options) rawToMapped(option Option) (err error) {
 		return setMappedValue(p.MappedValue, raw)
 	case *Indexed:
 		return setMappedValue(p.MappedValue, raw)
+	case *Repeated:
+		return setMappedValue(p.MappedValue, raw[len(raw)-1:])
 	case *Variadic:
 		return setMappedValue(p.MappedValue, raw)
 	}
@@ -496,18 +532,32 @@ func (self Options) parse(config *Config) (err error) {
 			}
 		}
 
+		// Fail if non *Repeatable option and parsed multiple times.
+		if _, ok := opt.(*Repeated); !ok {
+			if opt.GetParsed()  {
+				return fmt.Errorf("option %s specified multiple times", opt.GetLongName())
+			}
+		}
+
 		switch o := opt.(type) {
 		case *Boolean:
+
 			o.Parsed = true
 		case *Optional:
 			if !assignment {
-				return fmt.Errorf("optional option '%s' requires a value", o.GetLongName())
+				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
 			}
 			o.RawValues = append(o.RawValues, val)
 			o.Parsed = true
 		case *Required:
 			if !assignment {
-				return fmt.Errorf("required option '%s' requires a value", o.GetLongName())
+				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+			}
+			o.RawValues = append(o.RawValues, val)
+			o.Parsed = true
+		case *Repeated:
+			if !assignment {
+				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
 			}
 			o.RawValues = append(o.RawValues, val)
 			o.Parsed = true
