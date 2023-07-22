@@ -81,6 +81,8 @@ type Command struct {
 }
 
 // Commands holds a set of Commands.
+// Commands are never sorted and the order in which they are declared is
+// important to the Print function which prints the Commands in the same order.
 type Commands []*Command
 
 // Count returns the number of defined commands in self.

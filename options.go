@@ -48,6 +48,10 @@ type State struct {
 //
 // Options set is used to define a set of Options for a Command of the global
 // Options not applicable to any specific Command - or all.
+//
+// Options are never sorted and the order in which Options are declared is
+// importan; Print lists them in the oder they were declared and Indexed
+// options are matched to indexes of their arguments.
 type Options []Option
 
 // Returns number of registered options in self.
