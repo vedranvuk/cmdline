@@ -166,11 +166,15 @@ type Optional struct {
 	State
 }
 
-// Optional defines an option that is not required.
+// Optional defines an option that is not required and will not generate an
+// error if config.NoFailOnUnparsedRequired is unset. It optionally takes one
+// argument in the form of '--option=value' but can be specified without a
+// value in the form of '--option',.
 //
-// It takes one argument that is described as type of value for the option when
-// printing. Option is defined by long and short names and shows help when
-// printed. Returns self.
+// In either case, if the option was given in arguments calling IsParsed for
+// the Option will return true. If no assignemt was made ('--option')
+// or no value was given on assignment ('--option=) the PawValues for the
+// Option will return an empty array.
 func (self Options) Optional(longName, shortName, help string) Options {
 	return self.Register(&Optional{
 		LongName:  longName,
@@ -507,7 +511,7 @@ func (self Options) parse(config *Config) (err error) {
 
 		var key, val, assignment = strings.Cut(config.Arguments.Text(config), "=")
 		key = strings.TrimSpace(key)
-		if assignment {
+		if assignment && val != "" {
 			val = strings.TrimSpace(val)
 			if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
 				val = strings.TrimPrefix(strings.TrimSuffix(val, "\""), "\"")
@@ -553,22 +557,23 @@ func (self Options) parse(config *Config) (err error) {
 
 		switch o := opt.(type) {
 		case *Boolean:
-
+			if assignment {
+				return fmt.Errorf("option '%s' cannot be assigned a value", o.GetLongName())
+			}
 			o.IsParsed = true
 		case *Optional:
-			if !assignment {
-				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+			if assignment && val != "" {
+				o.RawValues = append(o.RawValues, val)
 			}
-			o.RawValues = append(o.RawValues, val)
 			o.IsParsed = true
 		case *Required:
-			if !assignment {
+			if !assignment || val == "" {
 				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
 			}
 			o.RawValues = append(o.RawValues, val)
 			o.IsParsed = true
 		case *Repeated:
-			if !assignment {
+			if !assignment || val == "" {
 				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
 			}
 			o.RawValues = append(o.RawValues, val)
