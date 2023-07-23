@@ -166,15 +166,11 @@ type Optional struct {
 	State
 }
 
-// Optional defines an option that is not required and will not generate an
-// error if config.NoFailOnUnparsedRequired is unset. It optionally takes one
-// argument in the form of '--option=value' but can be specified without a
-// value in the form of '--option',.
+// Optional defines an optional option.
 //
-// In either case, if the option was given in arguments calling IsParsed for
-// the Option will return true. If no assignemt was made ('--option')
-// or no value was given on assignment ('--option=) the PawValues for the
-// Option will return an empty array.
+// An optional option is an option which is not required and raises no error if
+// not parsed from arguments. Optional option takes a single argument as value
+// which can be retrieved from Command context using Value("option_name")
 func (self Options) Optional(longName, shortName, help string) Options {
 	return self.Register(&Optional{
 		LongName:  longName,
@@ -562,9 +558,10 @@ func (self Options) parse(config *Config) (err error) {
 			}
 			o.IsParsed = true
 		case *Optional:
-			if assignment && val != "" {
-				o.RawValues = append(o.RawValues, val)
+			if !assignment || val == "" {
+				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
 			}
+			o.RawValues = append(o.RawValues, val)
 			o.IsParsed = true
 		case *Required:
 			if !assignment || val == "" {
