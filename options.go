@@ -97,6 +97,9 @@ func (self Options) RawValues(longName string) RawValues {
 	return nil
 }
 
+// Options implements Context.Options.
+func (self Options) GetOptions() Options { return self }
+
 // Register registers an Option in these Options where option must be one of
 // the Option definition structs in this file. It returns self.
 // Option parameter must be one of:

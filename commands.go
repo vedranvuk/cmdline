@@ -33,6 +33,8 @@ type Context interface {
 	// Option under specified Name/LongName. Unparsed Options and options that
 	// take no arguments return an empty string.
 	RawValues(string) RawValues
+	// GetOptions returns this Commands' Options.
+	GetOptions() Options
 }
 
 // RawValues is a helper alias for a slice of strings representing arguments
