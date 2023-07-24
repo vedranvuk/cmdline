@@ -65,9 +65,9 @@ func PrintOption(w io.Writer, config *Config, option Option, indent int) {
 		io.WriteString(w, fmt.Sprintf("... %s%s=<value>\t... %s%s=<value>\t%s\n",
 			config.ShortPrefix, o.ShortName, config.LongPrefix, o.LongName, o.Help))
 	case *Indexed:
-		io.WriteString(w, fmt.Sprintf("<%s>\t%s\n", o.Name, o.Help))
+		io.WriteString(w, fmt.Sprintf("<%s>\t\t%s\n", o.Name, o.Help))
 	case *Variadic:
-		io.WriteString(w, fmt.Sprintf("... %s\t%s\n", o.Name, o.Help))
+		io.WriteString(w, fmt.Sprintf("... %s\t\t%s\n", o.Name, o.Help))
 	}
 }
 

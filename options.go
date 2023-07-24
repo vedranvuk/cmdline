@@ -524,11 +524,11 @@ func (self Options) parse(config *Config) (err error) {
 			}
 		case LongArgument:
 			if opt = self.FindLong(key); opt == nil {
-				return fmt.Errorf("option %s%s not registered", config.LongPrefix, key)
+				return fmt.Errorf("unknown option '%s%s'", config.LongPrefix, key)
 			}
 		case ShortArgument:
 			if opt = self.FindShort(key); opt == nil {
-				return fmt.Errorf("option %s%s not registered", config.ShortPrefix, key)
+				return fmt.Errorf("unknown option '%s%s'", config.ShortPrefix, key)
 			}
 		}
 
