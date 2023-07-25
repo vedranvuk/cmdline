@@ -22,7 +22,8 @@ type Handler func(Context) error
 type Context interface {
 	// Context embeds the standard Context.
 	// It might carry a timeout, deadline or values available to invoked
-	// Command Handler.
+	// Command Handler. It will be the context given to ParseCtx or
+	// context.Background if Command
 	context.Context
 	// IsParsed returns true if an Option with specified name was parsed.
 	//
@@ -77,6 +78,13 @@ type Command struct {
 	SubCommands Commands
 	// Options are this Command's options. Options are optional :|
 	Options Options
+
+	// ExclusivityGroups are the exclusivity groups for this Command's Options.
+	// If more than one Option from an ExclusivityGroup is passed in arguments
+	// Parse/ParseCtx will return an error.
+	//
+	// If no ExclusivityGroups are defined no checking is performed.
+	ExclusivityGroups ExclusivityGroups
 
 	// executed is true if the command was parsed from arguments.
 	executed bool
@@ -159,6 +167,9 @@ func (self Commands) parse(config *Config) (err error) {
 		}
 		config.Arguments.Next()
 		if err = cmd.Options.parse(config); err != nil {
+			return
+		}
+		if err = validateExclusivityGroups(cmd); err != nil {
 			return
 		}
 		var wrapper = &contextWrapper{

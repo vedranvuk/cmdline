@@ -77,7 +77,7 @@ func (self Options) FindShort(shortName string) Option {
 	return nil
 }
 
-// IsParsed implements Context.IsParseded.
+// IsParsed implements Context.IsParsed.
 func (self Options) IsParsed(longName string) bool {
 	for _, v := range self {
 		if v.GetLongName() == longName {
@@ -334,6 +334,14 @@ func (self Options) Variadic(name, help string) Options {
 	})
 }
 
+// ExclusivityGroup defines a group of option names which are mutually
+// exclusive and may not be passed in arguments at the same time.
+type ExclusivityGroup []string
+
+// ExclusivityGroups is a group of ExclusivityGroup used to define more than
+// one ExclusivityGroup.
+type ExclusivityGroups []ExclusivityGroup
+
 // Following funcs implement the Option interface on all five Option types.
 
 func (self *Boolean) GetLongName() string  { return self.LongName }
@@ -378,125 +386,6 @@ type Value interface {
 	String() string
 	// Set must parse a string into self or return an error if it failed.
 	Set(RawValues) error
-}
-
-// rawToMapped converts option.State.RawValue to option.MappedValue if option's
-// raw value is not nil.
-//
-// Returns nil on success of no value mapped.. Returns a non nil error on
-// failed conversion only.
-//
-// option.MappedValue must be a pointer to a supported type or any type that
-// supports conversion from a string by implementing the Value interface.
-//
-// Supported types are:
-// *bool, *string, *float32, *float64,
-// *int, *int8, *int16, *1nt32, *int64,
-// *uint, *uint8, *uint16, *u1nt32, *uint64
-// *time.Duration, *[]string, and any type supporting Value interface.
-//
-// If an unsupported type was set as option.MappedValue Parse will return a
-// conversion error.
-func (self Options) rawToMapped(option Option) (err error) {
-
-	var (
-		mapped = option.GetMappedValue()
-		raw    = option.GetRawValues()
-	)
-	if mapped == nil {
-		return nil
-	}
-	if _, ok := option.(*Boolean); !ok {
-		if len(raw) == 0 {
-			return nil
-		}
-	}
-	switch p := option.(type) {
-	case *Boolean:
-		return setMappedValue(p.MappedValue, raw)
-	case *Optional:
-		return setMappedValue(p.MappedValue, raw)
-	case *Required:
-		return setMappedValue(p.MappedValue, raw)
-	case *Indexed:
-		return setMappedValue(p.MappedValue, raw)
-	case *Repeated:
-		return setMappedValue(p.MappedValue, raw[len(raw)-1:])
-	case *Variadic:
-		return setMappedValue(p.MappedValue, raw)
-	}
-	return nil
-}
-
-func setMappedValue(v any, raw RawValues) (err error) {
-	switch p := v.(type) {
-	case *bool:
-		*p = true
-	case *string:
-		*p = raw.First()
-	case *int:
-		var v int64
-		if v, err = strconv.ParseInt(raw.First(), 10, 0); err == nil {
-			*p = int(v)
-		}
-	case *uint:
-		var v uint64
-		if v, err = strconv.ParseUint(raw.First(), 10, 0); err == nil {
-			*p = uint(v)
-		}
-	case *int8:
-		var v int64
-		if v, err = strconv.ParseInt(raw.First(), 10, 8); err == nil {
-			*p = int8(v)
-		}
-	case *uint8:
-		var v uint64
-		if v, err = strconv.ParseUint(raw.First(), 10, 8); err == nil {
-			*p = uint8(v)
-		}
-	case *int16:
-		var v int64
-		if v, err = strconv.ParseInt(raw.First(), 10, 16); err == nil {
-			*p = int16(v)
-		}
-	case *uint16:
-		var v uint64
-		if v, err = strconv.ParseUint(raw.First(), 10, 16); err == nil {
-			*p = uint16(v)
-		}
-	case *int32:
-		var v int64
-		if v, err = strconv.ParseInt(raw.First(), 10, 32); err == nil {
-			*p = int32(v)
-		}
-	case *uint32:
-		var v uint64
-		if v, err = strconv.ParseUint(raw.First(), 10, 32); err == nil {
-			*p = uint32(v)
-		}
-	case *int64:
-		*p, err = strconv.ParseInt(raw.First(), 10, 64)
-	case *uint64:
-		*p, err = strconv.ParseUint(raw.First(), 10, 64)
-	case *float32:
-		var v float64
-		if v, err = strconv.ParseFloat(raw.First(), 64); err == nil {
-			*p = float32(v)
-		}
-	case *float64:
-		*p, err = strconv.ParseFloat(raw.First(), 64)
-	case *[]string:
-		*p = append(*p, raw...)
-	case *time.Duration:
-		*p, err = time.ParseDuration(raw.First())
-	default:
-		if v, ok := p.(Value); ok {
-			err = v.Set(raw)
-		} else {
-			return errors.New("unsupported mapped value")
-		}
-	}
-	return
 }
 
 // parse parses self from args or returns an error.
@@ -607,5 +496,126 @@ func (self Options) parse(config *Config) (err error) {
 		}
 	}
 
+	return
+}
+
+// rawToMapped converts option.State.RawValue to option.MappedValue if option's
+// raw value is not nil.
+//
+// Returns nil on success of no value mapped.. Returns a non nil error on
+// failed conversion only.
+//
+// option.MappedValue must be a pointer to a supported type or any type that
+// supports conversion from a string by implementing the Value interface.
+//
+// Supported types are:
+// *bool, *string, *float32, *float64,
+// *int, *int8, *int16, *1nt32, *int64,
+// *uint, *uint8, *uint16, *u1nt32, *uint64
+// *time.Duration, *[]string, and any type supporting Value interface.
+//
+// If an unsupported type was set as option.MappedValue Parse will return a
+// conversion error.
+func (self Options) rawToMapped(option Option) (err error) {
+
+	var (
+		mapped = option.GetMappedValue()
+		raw    = option.GetRawValues()
+	)
+	if mapped == nil {
+		return nil
+	}
+	if _, ok := option.(*Boolean); !ok {
+		if len(raw) == 0 {
+			return nil
+		}
+	}
+	switch p := option.(type) {
+	case *Boolean:
+		return setMappedValue(p.MappedValue, raw)
+	case *Optional:
+		return setMappedValue(p.MappedValue, raw)
+	case *Required:
+		return setMappedValue(p.MappedValue, raw)
+	case *Indexed:
+		return setMappedValue(p.MappedValue, raw)
+	case *Repeated:
+		return setMappedValue(p.MappedValue, raw[len(raw)-1:])
+	case *Variadic:
+		return setMappedValue(p.MappedValue, raw)
+	}
+	return nil
+}
+
+// setMappedValue sets v which must be a pointer to a supported type from raw
+// or returns an error if conversion error occured.
+func setMappedValue(v any, raw RawValues) (err error) {
+	switch p := v.(type) {
+	case *bool:
+		*p = true
+	case *string:
+		*p = raw.First()
+	case *int:
+		var v int64
+		if v, err = strconv.ParseInt(raw.First(), 10, 0); err == nil {
+			*p = int(v)
+		}
+	case *uint:
+		var v uint64
+		if v, err = strconv.ParseUint(raw.First(), 10, 0); err == nil {
+			*p = uint(v)
+		}
+	case *int8:
+		var v int64
+		if v, err = strconv.ParseInt(raw.First(), 10, 8); err == nil {
+			*p = int8(v)
+		}
+	case *uint8:
+		var v uint64
+		if v, err = strconv.ParseUint(raw.First(), 10, 8); err == nil {
+			*p = uint8(v)
+		}
+	case *int16:
+		var v int64
+		if v, err = strconv.ParseInt(raw.First(), 10, 16); err == nil {
+			*p = int16(v)
+		}
+	case *uint16:
+		var v uint64
+		if v, err = strconv.ParseUint(raw.First(), 10, 16); err == nil {
+			*p = uint16(v)
+		}
+	case *int32:
+		var v int64
+		if v, err = strconv.ParseInt(raw.First(), 10, 32); err == nil {
+			*p = int32(v)
+		}
+	case *uint32:
+		var v uint64
+		if v, err = strconv.ParseUint(raw.First(), 10, 32); err == nil {
+			*p = uint32(v)
+		}
+	case *int64:
+		*p, err = strconv.ParseInt(raw.First(), 10, 64)
+	case *uint64:
+		*p, err = strconv.ParseUint(raw.First(), 10, 64)
+	case *float32:
+		var v float64
+		if v, err = strconv.ParseFloat(raw.First(), 64); err == nil {
+			*p = float32(v)
+		}
+	case *float64:
+		*p, err = strconv.ParseFloat(raw.First(), 64)
+	case *[]string:
+		*p = append(*p, raw...)
+	case *time.Duration:
+		*p, err = time.ParseDuration(raw.First())
+	default:
+		if v, ok := p.(Value); ok {
+			err = v.Set(raw)
+		} else {
+			return errors.New("unsupported mapped value")
+		}
+	}
 	return
 }

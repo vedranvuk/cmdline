@@ -79,3 +79,21 @@ func ValidateCommands(commands Commands) (err error) {
 	}
 	return nil
 }
+
+// validateExclusivityGroups returns nil if parsed command.Options do not
+// satisfy any of the defined command.ExclusivityGroups or an error otherwise.
+func validateExclusivityGroups(command *Command) error {
+	var conflict string
+	for _, group := range command.ExclusivityGroups {
+		conflict = ""
+		for _, name := range group {
+			if command.Options.IsParsed(name) {
+				if conflict != "" {
+					return fmt.Errorf("command '%s' options '%s' and '%s' are mutually exclusive", command.Name, conflict, name)
+				}
+				conflict = name
+			}
+		}
+	}
+	return nil
+}
