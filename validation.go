@@ -80,16 +80,24 @@ func ValidateCommands(commands Commands) (err error) {
 	return nil
 }
 
-// validateExclusivityGroups returns nil if parsed command.Options do not
-// satisfy any of the defined command.ExclusivityGroups or an error otherwise.
-func validateExclusivityGroups(command *Command) error {
+// validateCommandExclusivityGroups calls validateExclusivityGroups for command.
+func validateCommandExclusivityGroups(command *Command) (err error) {
+	if err = validateExclusivityGroups(command.ExclusivityGroups, command.Options); err != nil {
+		return fmt.Errorf("command '%s' %w", command.Name, err)
+	}
+	return
+}
+
+// validateCommandExclusivityGroups returns nil if parsed options do not satisfy
+// any of the defined groups or an error otherwise.
+func validateExclusivityGroups(groups ExclusivityGroups, options Options) error {
 	var conflict string
-	for _, group := range command.ExclusivityGroups {
+	for _, group := range groups {
 		conflict = ""
 		for _, name := range group {
-			if command.Options.IsParsed(name) {
+			if options.IsParsed(name) {
 				if conflict != "" {
-					return fmt.Errorf("command '%s' options '%s' and '%s' are mutually exclusive", command.Name, conflict, name)
+					return fmt.Errorf("options '%s' and '%s' are mutually exclusive", conflict, name)
 				}
 				conflict = name
 			}

@@ -33,6 +33,8 @@ type Config struct {
 	// GlobalsHandler is the handler for Globals.
 	// It is optional and gets invoked before any commands are parsed.
 	GlobalsHandler Handler
+	// GlobalExclusivityGroups are exclusivity groups for Globals.
+	GlobalExclusivityGroups ExclusivityGroups
 	// Commands is the root command set.
 	Commands Commands
 	// Usage is a function to call when no arguments are given to Parse.
@@ -162,6 +164,9 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 	if err = self.Globals.parse(self); err != nil {
 		return
 	}
+	if err = validateExclusivityGroups(self.GlobalExclusivityGroups, self.Globals); err != nil {
+		return
+	}
 
 	// Parse Commands.
 	var wrapper = &contextWrapper{
@@ -179,6 +184,6 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 
 // Reset resets the state of all Commands and Options including Globals defined
 // in self, recursively. After calling Reset the Config is ready to be parsed.
-func (self *Config) Reset()  {
+func (self *Config) Reset() {
 	// TODO
 }

@@ -169,7 +169,7 @@ func (self Commands) parse(config *Config) (err error) {
 		if err = cmd.Options.parse(config); err != nil {
 			return
 		}
-		if err = validateExclusivityGroups(cmd); err != nil {
+		if err = validateCommandExclusivityGroups(cmd); err != nil {
 			return
 		}
 		var wrapper = &contextWrapper{
