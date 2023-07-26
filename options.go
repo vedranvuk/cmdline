@@ -483,7 +483,7 @@ func (self Options) parse(config *Config) (err error) {
 		config.Arguments.Next()
 	}
 
-	if config.NoFailOnUnparsedRequired {
+	if !config.NoFailOnUnparsedRequired {
 		for _, opt = range self {
 			if !opt.GetIsParsed() {
 				if _, ok := opt.(*Required); ok {
