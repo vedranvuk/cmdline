@@ -43,6 +43,39 @@ func PrintCommand(w io.Writer, config *Config, command *Command, indent int) {
 func PrintOptions(w io.Writer, config *Config, options Options, indent int) {
 	var wr = newTabWriter(w, indent)
 	for _, option := range options {
+		if _, ok := option.(*Indexed); !ok {
+			continue
+		}
+		PrintOption(wr, config, option, indent)
+	}
+	for _, option := range options {
+		if _, ok := option.(*Boolean); !ok {
+			continue
+		}
+		PrintOption(wr, config, option, indent)
+	}
+	for _, option := range options {
+		if _, ok := option.(*Optional); !ok {
+			continue
+		}
+		PrintOption(wr, config, option, indent)
+	}
+	for _, option := range options {
+		if _, ok := option.(*Required); !ok {
+			continue
+		}
+		PrintOption(wr, config, option, indent)
+	}
+	for _, option := range options {
+		if _, ok := option.(*Repeated); !ok {
+			continue
+		}
+		PrintOption(wr, config, option, indent)
+	}
+	for _, option := range options {
+		if _, ok := option.(*Variadic); !ok {
+			continue
+		}
 		PrintOption(wr, config, option, indent)
 	}
 	wr.Flush()
@@ -53,22 +86,30 @@ func PrintOption(w io.Writer, config *Config, option Option, indent int) {
 	io.WriteString(w, getIndent(indent))
 	switch o := option.(type) {
 	case *Boolean:
-		io.WriteString(w, fmt.Sprintf("%s%s\t%s%s\t%s\n",
-			config.ShortPrefix, o.ShortName, config.LongPrefix, o.LongName, o.Help))
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, o.LongName, o.ShortName, false), o.Help))
 	case *Optional:
-		io.WriteString(w, fmt.Sprintf("%s%s=<value>\t%s%s=<value>\t%s\n",
-			config.ShortPrefix, o.ShortName, config.LongPrefix, o.LongName, o.Help))
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, o.LongName, o.ShortName, true), o.Help))
 	case *Required:
-		io.WriteString(w, fmt.Sprintf("%s%s=<value>\t%s%s=<value>\t%s\n",
-			config.ShortPrefix, o.ShortName, config.LongPrefix, o.LongName, o.Help))
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, o.LongName, o.ShortName, true), o.Help))
 	case *Repeated:
-		io.WriteString(w, fmt.Sprintf("... %s%s=<value>\t... %s%s=<value>\t%s\n",
-			config.ShortPrefix, o.ShortName, config.LongPrefix, o.LongName, o.Help))
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, o.LongName, o.ShortName, true), o.Help))
 	case *Indexed:
-		io.WriteString(w, fmt.Sprintf("<%s>\t\t%s\n", o.Name, o.Help))
+		io.WriteString(w, fmt.Sprintf("\t<%s>\t%s\n", o.Name, o.Help))
 	case *Variadic:
-		io.WriteString(w, fmt.Sprintf("... %s\t\t%s\n", o.Name, o.Help))
+		io.WriteString(w, fmt.Sprintf("... \t%s\t%s\n", o.Name, o.Help))
 	}
+}
+
+func h(config *Config, longname, shortname string, value bool) (result string) {
+	if shortname != "" {
+		result = fmt.Sprintf("%s%s\t%s%s", config.ShortPrefix, shortname, config.LongPrefix, longname)
+	} else {
+		result = fmt.Sprintf("\t%s%s", config.LongPrefix, longname)
+	}
+	if value {
+		result = result + " <value>"
+	}
+	return
 }
 
 // getIndent returns depth number of tabs used for indentation.
@@ -80,5 +121,5 @@ func getIndent(depth int) (result string) {
 }
 
 func newTabWriter(output io.Writer, indent int) *tabwriter.Writer {
-	return tabwriter.NewWriter(output, 2, 2, 4, 32, 0)
+	return tabwriter.NewWriter(output, 2, 2, 2, 32, 0)
 }
