@@ -80,7 +80,75 @@ func TestOptionsParsing(t *testing.T) {
 	)
 
 	if err := Parse(&Config{
-		Arguments: []string{"-b", "--optional=\"opt\"", "-r=42", "--repeated=1", "-p=2", "idxd", "one", "two", "three"},
+		Arguments:      []string{"-b", "--optional=\"opt\"", "-r=42", "--repeated=1", "-p=2", "idxd", "one", "two", "three"},
+		NoIndexedFirst: true,
+		Globals: Options{
+			&Boolean{
+				LongName:    "boolean",
+				ShortName:   "b",
+				MappedValue: &boolean,
+			},
+			&Optional{
+				LongName:    "optional",
+				ShortName:   "o",
+				MappedValue: &optional,
+			},
+			&Required{
+				LongName:    "required",
+				ShortName:   "r",
+				MappedValue: &required,
+			},
+			&Repeated{
+				LongName:    "repeated",
+				ShortName:   "p",
+				MappedValue: &repeated,
+			},
+			&Indexed{
+				Name:        "indexed",
+				MappedValue: &indexed,
+			},
+			&Variadic{
+				Name:        "variadic",
+				MappedValue: &variadic,
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if boolean != true {
+		t.Fatal("boolean")
+	}
+	if optional != "opt" {
+		t.Fatal("optional")
+	}
+	if required != 42 {
+		t.Fatal("required")
+	}
+	if strings.Join(repeated, " ") != "1 2" {
+		t.Fatal("repeated")
+	}
+	if indexed != "idxd" {
+		t.Fatal("indexed")
+	}
+	if strings.Join(variadic, " ") != "one two three" {
+		t.Fatal("variadic")
+	}
+}
+func TestOptionsParsingNoAssign(t *testing.T) {
+
+	var (
+		boolean  = false
+		optional = ""
+		required = 0
+		repeated = []string{}
+		indexed  = ""
+		variadic = []string{}
+	)
+
+	if err := Parse(&Config{
+		Arguments:      []string{"-b", "--optional", "opt", "-r", "42", "--repeated", "1", "-p", "2", "idxd", "one", "two", "three"},
+		NoIndexedFirst: true,
+		NoAssignment:   true,
 		Globals: Options{
 			&Boolean{
 				LongName:    "boolean",

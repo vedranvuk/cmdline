@@ -390,37 +390,99 @@ type Value interface {
 
 // parse parses self from args or returns an error.
 func (self Options) parse(config *Config) (err error) {
+
 	if self.Count() == 0 {
 		return nil
 	}
-	var opt Option
-	for !config.Arguments.Eof() {
-		opt = nil
 
-		var key, val, assignment = strings.Cut(config.Arguments.Text(config), "=")
-		key = strings.TrimSpace(key)
-		if assignment && val != "" {
-			val = strings.TrimSpace(val)
-			if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
-				val = strings.TrimPrefix(strings.TrimSuffix(val, "\""), "\"")
+	var (
+		opt        Option
+		key, val   string
+		assignment bool
+	)
+
+	for !config.Arguments.Eof() {
+
+		if config.NoAssignment {
+			key = strings.TrimSpace(config.Arguments.Text(config))
+			val = ""
+			assignment = false
+		} else {
+			key, val, assignment = strings.Cut(config.Arguments.Text(config), "=")
+			key = strings.TrimSpace(key)
+			if assignment && val != "" {
+				val = strings.TrimSpace(val)
+				if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
+					val = strings.TrimPrefix(strings.TrimSuffix(val, "\""), "\"")
+				}
 			}
 		}
 
 		switch kind := config.Arguments.Kind(config); kind {
 		case TextArgument:
-			for _, v := range self {
-				if _, ok := v.(*Indexed); ok && !v.GetIsParsed() {
-					opt = v
-					break
+			if config.NoAssignment && opt != nil {
+				switch opt.(type) {
+				case *Optional, *Required, *Repeated:
+				default:
+					return fmt.Errorf("option '%s' requires a value", opt.GetLongName())
+
+				}
+			} else {
+				if o := self.getFirstUnparsedIndexed(); o != nil {
+					opt = o
 				}
 			}
 		case LongArgument:
+			if !config.NoIndexedFirst {
+				if fui := self.getFirstUnparsedIndexed(); fui != nil {
+					return fmt.Errorf("indexed argument '%s' not parsed", fui.GetLongName())
+				}
+			}
+
+			if config.NoAssignment && opt != nil {
+				return fmt.Errorf("option '%s' requires a value", opt.GetLongName())
+			}
+
 			if opt = self.FindLong(key); opt == nil {
-				return fmt.Errorf("unknown option '%s%s'", config.LongPrefix, key)
+				return fmt.Errorf("unknown option '%s'", key)
+			}
+
+			switch opt.(type) {
+			case *Boolean:
+			case *Optional, *Required, *Repeated:
+				if config.NoAssignment {
+					config.Arguments.Next()
+					continue
+				}
+			default:
+				return fmt.Errorf("option '%s' exists, but is not named", opt.GetLongName())
+
 			}
 		case ShortArgument:
+			if !config.NoIndexedFirst {
+				if fui := self.getFirstUnparsedIndexed(); fui != nil {
+					return fmt.Errorf("indexed argument '%s' not parsed", fui.GetLongName())
+				}
+			}
+
+			if config.NoAssignment && opt != nil {
+				return fmt.Errorf("option '%s' requires a value", opt.GetLongName())
+			}
+
 			if opt = self.FindShort(key); opt == nil {
-				return fmt.Errorf("unknown option '%s%s'", config.ShortPrefix, key)
+				return fmt.Errorf("unknown option '%s'", key)
+			}
+
+			switch opt.(type) {
+			case *Boolean:
+			case *Optional, *Required, *Repeated:
+				if config.NoAssignment {
+					config.Arguments.Next()
+					continue
+				}
+			default:
+				return fmt.Errorf("option '%s' exists, but is not named", opt.GetLongName())
+
 			}
 		}
 
@@ -445,31 +507,55 @@ func (self Options) parse(config *Config) (err error) {
 
 		switch o := opt.(type) {
 		case *Boolean:
-			if assignment {
-				return fmt.Errorf("option '%s' cannot be assigned a value", o.GetLongName())
+			if config.NoAssignment {
+				o.IsParsed = true
+			} else {
+				if assignment {
+					return fmt.Errorf("option '%s' cannot be assigned a value", o.GetLongName())
+				}
+				o.IsParsed = true
 			}
-			o.IsParsed = true
 		case *Optional:
-			if !assignment || val == "" {
-				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+			if config.NoAssignment {
+				o.RawValues = append(o.RawValues, key)
+				o.IsParsed = true
+			} else {
+				if !assignment || val == "" {
+					return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+				}
+				o.RawValues = append(o.RawValues, val)
+				o.IsParsed = true
 			}
-			o.RawValues = append(o.RawValues, val)
-			o.IsParsed = true
 		case *Required:
-			if !assignment || val == "" {
-				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+			if config.NoAssignment {
+				o.RawValues = append(o.RawValues, key)
+				o.IsParsed = true
+			} else {
+				if !assignment || val == "" {
+					return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+				}
+				o.RawValues = append(o.RawValues, val)
+				o.IsParsed = true
 			}
-			o.RawValues = append(o.RawValues, val)
-			o.IsParsed = true
 		case *Repeated:
-			if !assignment || val == "" {
-				return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+			if config.NoAssignment {
+				o.RawValues = append(o.RawValues, key)
+				o.IsParsed = true
+			} else {
+				if !assignment || val == "" {
+					return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+				}
+				o.RawValues = append(o.RawValues, val)
+				o.IsParsed = true
 			}
-			o.RawValues = append(o.RawValues, val)
-			o.IsParsed = true
 		case *Indexed:
-			o.RawValues = append(o.RawValues, key)
-			o.IsParsed = true
+			if config.NoAssignment {
+				o.RawValues = append(o.RawValues, key)
+				o.IsParsed = true
+			} else {
+				o.RawValues = append(o.RawValues, key)
+				o.IsParsed = true
+			}
 		case *Variadic:
 			o.RawValues = append(o.RawValues, config.Arguments...)
 			o.IsParsed = true
@@ -480,6 +566,7 @@ func (self Options) parse(config *Config) (err error) {
 			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.GetMappedValue(), opt.GetLongName(), err)
 		}
 
+		opt = nil
 		config.Arguments.Next()
 	}
 
@@ -497,6 +584,19 @@ func (self Options) parse(config *Config) (err error) {
 	}
 
 	return
+}
+
+// getFirstUnparsedIndexed returns the first Indexed Option that is not parsed.
+// Returns nil if none found.
+func (self Options) getFirstUnparsedIndexed() Option {
+	for _, option := range self {
+		if _, ok := option.(*Indexed); ok {
+			if !option.GetIsParsed() {
+				return option
+			}
+		}
+	}
+	return nil
 }
 
 // rawToMapped converts option.State.RawValue to option.MappedValue if option's

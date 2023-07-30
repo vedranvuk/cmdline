@@ -41,16 +41,25 @@ type Config struct {
 	// If unset, invokes the built in Usage func.
 	// Parse functions will still return ErrNoArgs.
 	Usage func()
-	// NoFailOnUnparsedRequired if true, will not return an error if a
-	// defined Required or Indexed option was not parsed from arguments.
-	// Defaults to false.
-	NoFailOnUnparsedRequired bool
+
 	// LongPrefix is the long Option prefix to use. It is optional and is
 	// defaulted to DefaultLongPrefix by Parse() if left empty.
 	LongPrefix string
 	// ShortPrefix is the short Option prefix to use. It is optional and is
 	// defaulted to DefaultShortPrefix by Parse() if left empty.
 	ShortPrefix string
+
+	// NoFailOnUnparsedRequired if true, will not return an error if a
+	// defined Required or Indexed option was not parsed from arguments.
+	// Defaults to false.
+	NoFailOnUnparsedRequired bool
+	// NoAssignment if true, uses '--key value' format instead of '--key=value'.
+	// Defaults to false.
+	NoAssignment bool
+	// NoIndexedFirst if true, does not require that any Indexed Options must
+	// be parsed before any other types of defined options.
+	// Defaults to False.
+	NoIndexedFirst bool
 
 	// context is the context given to Config.Parse and is set at that time.
 	// If nil context was given, Config.Parse sets it to context.Background().
