@@ -37,6 +37,27 @@ func TestContext(t *testing.T) {
 
 }
 
+func TestRequireSubCommandExecution(t *testing.T) {
+	if err := Parse(&Config{
+		Arguments: []string{"one"},
+		Commands: Commands{
+			{
+				Name:                "one",
+				RequireSubExecution: true,
+				Handler:             NopHandler,
+				SubCommands: Commands{
+					{
+						Name:    "two",
+						Handler: NopHandler,
+					},
+				},
+			},
+		},
+	}); err == nil {
+		t.Fatal()
+	}
+}
+
 func TestLastInChain(t *testing.T) {
 	var e = errors.New("e")
 

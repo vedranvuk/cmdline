@@ -85,7 +85,11 @@ type Command struct {
 	SubCommands Commands
 	// Options are this Command's options. Options are optional :|
 	Options Options
-
+	// RequireSubExecution if true, will raise an error if none of this
+	// Command's SubCommands were executed. The setting is ignored if Command
+	// has no SubCommands defined.
+	// Defaults to false.
+	RequireSubExecution bool
 	// ExclusivityGroups are the exclusivity groups for this Command's Options.
 	// If more than one Option from an ExclusivityGroup is passed in arguments
 	// Parse/ParseCtx will return an error.
@@ -199,7 +203,12 @@ func (self Commands) parse(config *Config, parent *Command) (err error) {
 		if err = cmd.Handler(wrapper); err != nil {
 			return
 		}
-		return cmd.SubCommands.parse(config, cmd)
+		if err = cmd.SubCommands.parse(config, cmd); err != nil {
+			return
+		}
+		if cmd.RequireSubExecution && cmd.SubCommands.Count() > 0 && !cmd.SubCommands.AnyExecuted() {
+			return fmt.Errorf("command '%s' requires execution of one of its subcommands", cmd.Name)
+		}
 	}
 	return nil
 }

@@ -83,7 +83,7 @@ func ParseCtx(ctx context.Context, config *Config) error { return config.Parse(c
 // be called manually.
 func (self *Config) PrintUsage() {
 	var exe = filepath.Base(os.Args[0])
-	fmt.Printf("Usage: %s [global-options] [...command [...command-option]]\n", exe)
+	fmt.Printf("Usage: %s [global-options] ...command [...command-option]\n", exe)
 	fmt.Printf("Type '%s help' for more help.\n", exe)
 }
 
