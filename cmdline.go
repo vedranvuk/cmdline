@@ -178,9 +178,10 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 	}
 
 	// Parse Commands.
-	var wrapper = &contextWrapper{
+	var wrapper = &wrapper{
 		self.context,
 		self.Globals,
+		nil, nil,
 	}
 	if self.GlobalsHandler != nil {
 		if err = self.GlobalsHandler(wrapper); err != nil {
@@ -188,7 +189,7 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 		}
 	}
 
-	return self.Commands.parse(self)
+	return self.Commands.parse(self, nil)
 }
 
 // Reset resets the state of all Commands and Options including Globals defined

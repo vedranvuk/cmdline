@@ -36,6 +36,13 @@ type Context interface {
 	RawValues(string) RawValues
 	// GetOptions returns this Commands' Options.
 	GetOptions() Options
+	// GetCommand returns the owner Command of this handler.
+	// If this handler is the global options handler command will be nil.
+	GetCommand() *Command
+	// GetParentCommand returns the parent command of this handler's command.
+	// It may return nil if this command has no parent command or if this 
+	// handler is the global options handler.
+	GetParentCommand() *Command
 }
 
 // RawValues is a helper alias for a slice of strings representing arguments
@@ -154,7 +161,7 @@ func (self Commands) Register(command *Command) Commands {
 }
 
 // parse parses self from config or returns an error.
-func (self Commands) parse(config *Config) (err error) {
+func (self Commands) parse(config *Config, parent *Command) (err error) {
 	switch kind, name := config.Arguments.Kind(config), config.Arguments.Text(config); kind {
 	case NoArgument:
 		return nil
@@ -172,22 +179,32 @@ func (self Commands) parse(config *Config) (err error) {
 		if err = validateCommandExclusivityGroups(cmd); err != nil {
 			return
 		}
-		var wrapper = &contextWrapper{
+		cmd.executed = true
+		var wrapper = &wrapper{
 			config.context,
 			cmd.Options,
+			cmd,
+			parent,
 		}
-		cmd.executed = true
 		if err = cmd.Handler(wrapper); err != nil {
 			return
 		}
-		return cmd.SubCommands.parse(config)
+		return cmd.SubCommands.parse(config, cmd)
 	}
 	return nil
 }
 
 // contextWrapper wraps the standard Context and Options to imlement
 // cmdline.Context.
-type contextWrapper struct {
+type wrapper struct {
 	context.Context
 	Options
+	Command *Command
+	Parent  *Command
 }
+
+// GetCommand implements Context.GetCommand.
+func (self *wrapper) GetCommand() *Command { return self.Command }
+
+// GetParentCommand implements Context.GetParentCommand.
+func (self *wrapper) GetParentCommand() *Command { return self.Parent }

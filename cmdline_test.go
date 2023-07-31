@@ -8,6 +8,35 @@ import (
 	"time"
 )
 
+func TestContext(t *testing.T) {
+
+	var (
+		a = &Command{Name: "a"}
+		b = &Command{Name: "b"}
+	)
+
+	a.Handler = func(c Context) error {
+		if c.GetParentCommand() != nil {
+			t.Fatal("GetParentCommand failed")
+		}
+		if c.GetCommand() != a {
+			t.Fatal("GetCommand failed")
+		}
+		return nil
+	}
+
+	b.Handler = func(c Context) error {
+		if c.GetParentCommand() != a {
+			t.Fatal("GetParentCommand failed")
+		}
+		if c.GetParentCommand() != b {
+			t.Fatal("GetCommand failed")
+		}
+		return nil
+	}
+
+}
+
 func TestLastInChain(t *testing.T) {
 	var e = errors.New("e")
 
@@ -134,6 +163,7 @@ func TestOptionsParsing(t *testing.T) {
 		t.Fatal("variadic")
 	}
 }
+
 func TestOptionsParsingNoAssign(t *testing.T) {
 
 	var (
