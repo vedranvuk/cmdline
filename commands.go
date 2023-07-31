@@ -175,7 +175,7 @@ func (self Commands) Register(command *Command) Commands {
 }
 
 // parse parses self from config or returns an error.
-func (self Commands) parse(config *Config, parent *Command) (err error) {
+func (self Commands) parse(config *Config) (err error) {
 	switch kind, name := config.Arguments.Kind(config), config.Arguments.Text(config); kind {
 	case NoArgument:
 		return nil
@@ -194,16 +194,8 @@ func (self Commands) parse(config *Config, parent *Command) (err error) {
 			return
 		}
 		cmd.executed = true
-		var wrapper = &wrapper{
-			config.context,
-			cmd.Options,
-			cmd,
-			parent,
-		}
-		if err = cmd.Handler(wrapper); err != nil {
-			return
-		}
-		if err = cmd.SubCommands.parse(config, cmd); err != nil {
+		config.chain = append(config.chain, cmd)
+		if err = cmd.SubCommands.parse(config); err != nil {
 			return
 		}
 		if cmd.RequireSubExecution && cmd.SubCommands.Count() > 0 && !cmd.SubCommands.AnyExecuted() {
@@ -213,17 +205,3 @@ func (self Commands) parse(config *Config, parent *Command) (err error) {
 	return nil
 }
 
-// contextWrapper wraps the standard Context and Options to imlement
-// cmdline.Context.
-type wrapper struct {
-	context.Context
-	Options
-	Command *Command
-	Parent  *Command
-}
-
-// GetCommand implements Context.GetCommand.
-func (self *wrapper) GetCommand() *Command { return self.Command }
-
-// GetParentCommand implements Context.GetParentCommand.
-func (self *wrapper) GetParentCommand() *Command { return self.Parent }

@@ -60,10 +60,15 @@ type Config struct {
 	// be parsed before any other types of defined options.
 	// Defaults to False.
 	NoIndexedFirst bool
-
+	// NoExecLastHandlerOnly if true will execute handlers of all Commands in
+	// the execution chain. If false Parse executes only the Handler of the
+	// last Command in the execution chain.
+	NoExecLastHandlerOnly bool
 	// context is the context given to Config.Parse and is set at that time.
 	// If nil context was given, Config.Parse sets it to context.Background().
 	context context.Context
+	// chain is the chain of commands to execute determined by parse.
+	chain []*Command
 }
 
 // Parse parses config.Arguments into config.Globals then config.Commands.
@@ -169,31 +174,72 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 		self.ShortPrefix = DefaultShortPrefix
 	}
 
-	// Parse Globals.
+	var w *wrapper
+
+	// Process Globals
 	if err = self.Globals.parse(self); err != nil {
 		return
 	}
 	if err = validateExclusivityGroups(self.GlobalExclusivityGroups, self.Globals); err != nil {
 		return
 	}
-
-	// Parse Commands.
-	var wrapper = &wrapper{
+	w = &wrapper{
 		self.context,
 		self.Globals,
 		nil, nil,
 	}
 	if self.GlobalsHandler != nil {
-		if err = self.GlobalsHandler(wrapper); err != nil {
+		if err = self.GlobalsHandler(w); err != nil {
 			return
 		}
 	}
 
-	return self.Commands.parse(self, nil)
+	// Process Commands
+	if err = self.Commands.parse(self); err != nil {
+		return
+	}
+	if self.Commands.Count() == 0 || len(self.chain) == 0 {
+		return nil
+	}
+	var (
+		parent *Command
+		last   = len(self.chain) - 1
+	)
+	for index, current := range self.chain {
+		if self.NoExecLastHandlerOnly || index == last {
+			w = &wrapper{
+				self.context,
+				current.Options,
+				current,
+				parent,
+			}
+			if err = current.Handler(w); err != nil {
+				return
+			}
+		}
+		parent = current
+	}
+
+	return nil
 }
 
 // Reset resets the state of all Commands and Options including Globals defined
 // in self, recursively. After calling Reset the Config is ready to be parsed.
 func (self *Config) Reset() {
-	// TODO
+	// TODO: Implement Config.Reset.
 }
+
+// contextWrapper wraps the standard Context and Options to imlement
+// cmdline.Context.
+type wrapper struct {
+	context.Context
+	Options
+	Command *Command
+	Parent  *Command
+}
+
+// GetCommand implements Context.GetCommand.
+func (self *wrapper) GetCommand() *Command { return self.Command }
+
+// GetParentCommand implements Context.GetParentCommand.
+func (self *wrapper) GetParentCommand() *Command { return self.Parent }

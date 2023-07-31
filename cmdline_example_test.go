@@ -15,6 +15,7 @@ func ExampleParse() {
 
 	var config = &cmdline.Config{
 		Arguments:   []string{"--verbose", "items", "add", "-f", "-c=9000", "--value=\"rofl\""},
+		NoExecLastHandlerOnly: true,
 		Globals: cmdline.Options{
 			&cmdline.Boolean{
 				LongName:    "verbose",
