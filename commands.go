@@ -40,7 +40,7 @@ type Context interface {
 	// If this handler is the global options handler command will be nil.
 	GetCommand() *Command
 	// GetParentCommand returns the parent command of this handler's command.
-	// It may return nil if this command has no parent command or if this 
+	// It may return nil if this command has no parent command or if this
 	// handler is the global options handler.
 	GetParentCommand() *Command
 }
@@ -113,6 +113,16 @@ func (self Commands) Find(name string) *Command {
 		}
 	}
 	return nil
+}
+
+// AnyExecuted returns true if any commands in Commands was executed.
+func (self Commands) AnyExecuted() bool {
+	for _, command := range self {
+		if command.executed {
+			return true
+		}
+	}
+	return false
 }
 
 // VisitCommandFunc is a prototype of a function called for each Command visited.
