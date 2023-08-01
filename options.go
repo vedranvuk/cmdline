@@ -403,6 +403,7 @@ func (self Options) parse(config *Config) (err error) {
 
 	for !config.Arguments.Eof() {
 
+		// If NoAssignment is set the 
 		if config.NoAssignment {
 			key = strings.TrimSpace(config.Arguments.Text(config))
 			val = ""
@@ -418,6 +419,9 @@ func (self Options) parse(config *Config) (err error) {
 			}
 		}
 
+		// Try to detect the option by argument kind.
+		// If not prefixed see if theres defined and yet unparsed indexed.
+		// If prefixed see if its Boolean, Optional, Required or Repeated.
 		switch kind := config.Arguments.Kind(config); kind {
 		case TextArgument:
 			if config.NoAssignment && opt != nil {
@@ -486,6 +490,7 @@ func (self Options) parse(config *Config) (err error) {
 			}
 		}
 
+		// No options matched so far, see if there's a Variadic.
 		if opt == nil {
 			for _, v := range self {
 				if _, ok := v.(*Variadic); ok {
@@ -505,6 +510,7 @@ func (self Options) parse(config *Config) (err error) {
 			}
 		}
 
+		// Sets the Option as parsed and sets raw value(s).
 		switch o := opt.(type) {
 		case *Boolean:
 			if config.NoAssignment {

@@ -8,7 +8,7 @@ import (
 
 // PrintConfig prints Globals and Commands to w from config.
 func PrintConfig(w io.Writer, config *Config) {
-	var wr = newTabWriter(w, 0)
+	var wr = newTabWriter(w)
 	if config.Globals.Count() > 0 {
 		io.WriteString(wr, fmt.Sprintf("Global options:\n"))
 		PrintOptions(wr, config, config.Globals, 1)
@@ -41,7 +41,7 @@ func PrintCommand(w io.Writer, config *Config, command *Command, indent int) {
 
 // PrintOptions prints options to w idented with ident tabs using config.
 func PrintOptions(w io.Writer, config *Config, options Options, indent int) {
-	var wr = newTabWriter(w, indent)
+	var wr = newTabWriter(w)
 	for _, option := range options {
 		if _, ok := option.(*Indexed); !ok {
 			continue
@@ -115,11 +115,11 @@ func h(config *Config, longname, shortname string, value bool) (result string) {
 // getIndent returns depth number of tabs used for indentation.
 func getIndent(depth int) (result string) {
 	for i := 0; i < depth; i++ {
-		result += "\t"
+		result += "  "
 	}
 	return
 }
 
-func newTabWriter(output io.Writer, indent int) *tabwriter.Writer {
+func newTabWriter(output io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(output, 2, 2, 2, 32, 0)
 }
