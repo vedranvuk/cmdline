@@ -394,3 +394,6 @@ var config = &cmdline.Config{
 }
 ```
 
+## License
+
+MIT
