@@ -1,3 +1,7 @@
+// Copyright 2023 Vedran Vuk. All rights reserved.
+// Use of this source code is governed by a MIT
+// license that can be found in the LICENSE file.
+
 package cmdline
 
 import (
@@ -42,73 +46,6 @@ type State struct {
 	IsParsed bool
 	// RawValues will contain any arguments given as a value to the Option.
 	RawValues []string
-}
-
-// Options contains and manages a set of Options.
-//
-// Options set is used to define a set of Options for a Command of the global
-// Options not applicable to any specific Command - or all.
-//
-// Options are never sorted and the order in which Options are declared is
-// importan; Print lists them in the oder they were declared and Indexed
-// options are matched to indexes of their arguments.
-type Options []Option
-
-// Returns number of registered options in self.
-func (self Options) Count() int { return len(self) }
-
-// FindLong returns an Option with given longName or nil if not found.
-func (self Options) FindLong(longName string) Option {
-	for i := 0; i < len(self); i++ {
-		if self[i].GetLongName() == longName {
-			return self[i]
-		}
-	}
-	return nil
-}
-
-// Get returns an Option with given shortName or nil if not found.
-func (self Options) FindShort(shortName string) Option {
-	for i := 0; i < len(self); i++ {
-		if self[i].GetShortName() == shortName {
-			return self[i]
-		}
-	}
-	return nil
-}
-
-// IsParsed implements Context.IsParsed.
-func (self Options) IsParsed(longName string) bool {
-	for _, v := range self {
-		if v.GetLongName() == longName {
-			return v.GetIsParsed()
-		}
-	}
-	return false
-}
-
-// Parsed implements Context.RawValues.
-func (self Options) RawValues(longName string) RawValues {
-	for _, v := range self {
-		if v.GetLongName() == longName {
-			return v.GetRawValues()
-		}
-	}
-	return nil
-}
-
-// Options implements Context.Options.
-func (self Options) GetOptions() Options { return self }
-
-// Register registers an Option in these Options where option must be one of
-// the Option definition structs in this file. It returns self.
-// Option parameter must be one of:
-//
-//	Boolean, Optional, Required, Indexed, Variadic
-func (self Options) Register(option Option) Options {
-	// TODO: Check short key dulicates.
-	self = append(self, option)
-	return self
 }
 
 // Boolean defines a boolean option.
@@ -334,6 +271,73 @@ func (self Options) Variadic(name, help string) Options {
 	})
 }
 
+// Options contains and manages a set of Options.
+//
+// Options set is used to define a set of Options for a Command of the global
+// Options not applicable to any specific Command - or all.
+//
+// Options are never sorted and the order in which Options are declared is
+// importan; Print lists them in the oder they were declared and Indexed
+// options are matched to indexes of their arguments.
+type Options []Option
+
+// Returns number of registered options in self.
+func (self Options) Count() int { return len(self) }
+
+// FindLong returns an Option with given longName or nil if not found.
+func (self Options) FindLong(longName string) Option {
+	for i := 0; i < len(self); i++ {
+		if self[i].GetLongName() == longName {
+			return self[i]
+		}
+	}
+	return nil
+}
+
+// Get returns an Option with given shortName or nil if not found.
+func (self Options) FindShort(shortName string) Option {
+	for i := 0; i < len(self); i++ {
+		if self[i].GetShortName() == shortName {
+			return self[i]
+		}
+	}
+	return nil
+}
+
+// IsParsed implements Context.IsParsed.
+func (self Options) IsParsed(longName string) bool {
+	for _, v := range self {
+		if v.GetLongName() == longName {
+			return v.GetIsParsed()
+		}
+	}
+	return false
+}
+
+// Parsed implements Context.RawValues.
+func (self Options) RawValues(longName string) RawValues {
+	for _, v := range self {
+		if v.GetLongName() == longName {
+			return v.GetRawValues()
+		}
+	}
+	return nil
+}
+
+// Options implements Context.Options.
+func (self Options) GetOptions() Options { return self }
+
+// Register registers an Option in these Options where option must be one of
+// the Option definition structs in this file. It returns self.
+// Option parameter must be one of:
+//
+//	Boolean, Optional, Required, Indexed, Variadic
+func (self Options) Register(option Option) Options {
+	// TODO: Check short key dulicates.
+	self = append(self, option)
+	return self
+}
+
 // ExclusivityGroup defines a group of option names which are mutually
 // exclusive and may not be passed in arguments at the same time.
 type ExclusivityGroup []string
@@ -403,7 +407,7 @@ func (self Options) parse(config *Config) (err error) {
 
 	for !config.Arguments.Eof() {
 
-		// If NoAssignment is set the 
+		// If NoAssignment is set the
 		if config.NoAssignment {
 			key = strings.TrimSpace(config.Arguments.Text(config))
 			val = ""
