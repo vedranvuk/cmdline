@@ -53,12 +53,6 @@ type Config struct {
 	// defaulted to DefaultShortPrefix by Parse() if left empty.
 	ShortPrefix string
 
-	// Tag is the name of the tag read by [Bind] when generating options
-	// from struct fields. See [Tag] for details.
-	//
-	// Default: DefaultTagName ("cmdline")
-	TagName string
-
 	// NoFailOnUnparsedRequired if true, will not return an error if a
 	// defined Required or Indexed option was not parsed from arguments.
 	// Defaults to false.
@@ -182,9 +176,6 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 	}
 	if self.ShortPrefix == "" {
 		self.ShortPrefix = DefaultShortPrefix
-	}
-	if self.TagName == "" {
-		self.TagName = DefaultTagName
 	}
 
 	var w *wrapper

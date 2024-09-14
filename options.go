@@ -314,6 +314,29 @@ func (self Options) IsParsed(longName string) bool {
 	return false
 }
 
+// SetIfParsed sets the value to parsed value if option under name was parsed.
+func (self Options) SetIfParsed(longName string, value *string) bool {
+	
+	var o Option
+	for _, o = range self {
+		if o.GetLongName() == longName {
+			break
+		}
+	}
+
+	if o == nil {
+		return false
+	}
+
+	if rv := o.GetRawValues(); len(rv) > 0 {
+		*value = o.GetRawValues().First()
+	} else {
+		return false
+	}
+
+	return true
+}
+
 // Parsed implements Context.RawValues.
 func (self Options) RawValues(longName string) RawValues {
 	for _, v := range self {

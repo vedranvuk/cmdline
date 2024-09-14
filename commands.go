@@ -24,25 +24,40 @@ type Handler func(Context) error
 // Command's Options states. It wraps the standard context passed to Config.Parse
 // possibly via Parse or ParseCtx.
 type Context interface {
+
 	// Context embeds the standard Context.
 	// It might carry a timeout, deadline or values available to invoked
 	// Command Handler. It will be the context given to ParseCtx or
-	// context.Background if Command
+	// context.Background if Parse was used.
 	context.Context
+
+	// SetIfParsed sets the value of the second parameter to the parsed value
+	// if option named with first parameter was parsed.
+	//
+	// Value is set from first value in RawValues which could be empty. If 
+	// RawValues are empty value is not set.
+	//
+	// It returns truth if value was set.
+	SetIfParsed(string, *string) bool
+
 	// IsParsed returns true if an Option with specified name was parsed.
 	//
 	// Options with both Long and Short names use Long names to match against
 	// the option name given to this method.
 	IsParsed(string) bool
+
 	// RawValues returns an array of raw string values that were passed to the
 	// Option under specified Name/LongName. Unparsed Options and options that
 	// take no arguments return an empty string.
 	RawValues(string) RawValues
+
 	// GetOptions returns this Commands' Options.
 	GetOptions() Options
+
 	// GetCommand returns the owner Command of this handler.
 	// If this handler is the global options handler command will be nil.
 	GetCommand() *Command
+
 	// GetParentCommand returns the parent command of this handler's command.
 	// It may return nil if this command has no parent command or if this
 	// handler is the global options handler.
@@ -208,4 +223,3 @@ func (self Commands) parse(config *Config) (err error) {
 	}
 	return nil
 }
-
