@@ -1,8 +1,12 @@
 package models
 
-// testTag:"name=options"
-// testTag:"help=Defines a set of options."
+// Options is a demo struct.
+//cmdline:"name=options"
+//cmdline:"help=Defines a set of options."
 type Options struct {
 	// OutputDirectory is the output directory.
+	//
+	// This is a multiline comment.
+	//cmdline:"help=Output directory."
 	OutputDirectory string `testTag:"name=outDir,required"`
 }

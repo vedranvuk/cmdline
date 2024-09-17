@@ -6,7 +6,7 @@ toolchain go1.23.1
 
 require (
 	github.com/vedranvuk/bast v0.0.0-20240914200415-d8832853feb3
-	github.com/vedranvuk/strutils v0.0.0-20240915123236-c63527aa595b
+	github.com/vedranvuk/strutils v0.0.0-20240916185855-36cf4a8f640a
 )
 
 require (

@@ -95,6 +95,12 @@ type GenerateConfig struct {
 	// PointerVars if true generates command variables as pointers.
 	PointerVars bool `cmdline:"name=pointerVars" json:"pointerVars,omitempty"`
 
+	// HelpFromTag if true Adds option help from HelpTag.
+	HelpFromTag bool `cmdline:"name=helpFromTag" json:"helpFromTag,omitempty"`
+
+	// HelpFromDocs if true adds option help from srtuct field docs.
+	HelpFromDocs bool `cmdline:"name=helpFromDocs" json:"helpFromDocs,omitempty"`
+
 	// BastConfig is the bastard ast config.
 	BastConfig *bast.Config `json:"-"`
 
@@ -112,6 +118,10 @@ type GenerateConfig struct {
 // DefaultGenerateConfig returns the default [GenerateConfig].
 func DefaultGenerateConfig() (c *GenerateConfig) {
 	c = new(GenerateConfig)
+	c.TagName = DefaultTagName
+	c.OutputFile = DefaultOutputFile
+	c.HelpFromTag = true
+	c.HelpFromDocs = true
 	c.BastConfig = bast.DefaultConfig()
 	c.state.Imports = make(map[string]string)
 	return
@@ -263,13 +273,21 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	}
 
 	if err = tag.ParseStructTag(f.Tag); err != nil {
-		return
+		if err != strutils.ErrTagNotFound {
+			return
+		}
+	}
+	if err = tag.ParseDocs(f.Doc); err != nil {
+		if err != strutils.ErrTagNotFound {
+			return
+		}
 	}
 
-	var name = tag.First(NameTag)
-	if name == "" {
-		err = errors.New("invalid name tag, no value")
-		return
+	var name = f.Name
+	if tag.Exists(NameTag) {
+		if name = tag.First(NameTag); name == "" {
+			return errors.New("invalid name tag, no value")
+		}
 	}
 
 	var (
@@ -279,6 +297,9 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	if optional && required {
 		err = errors.New("optional and required tag keys are mutually exclusive")
 		return
+	}
+	if !(optional&&required){
+		optional = true
 	}
 
 	var opt Option
@@ -290,7 +311,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 		opt = Option{
 			LongName:  name,
 			ShortName: "",
-			Help:      tag.Values[HelpTag],
+			Help:      self.makeHelp(tag.Values[HelpTag], f.Doc),
 		}
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
@@ -300,7 +321,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 			opt = Option{
 				LongName:  name,
 				ShortName: "",
-				Help:      tag.Values[HelpTag],
+				Help:      self.makeHelp(tag.Values[HelpTag], f.Doc),
 				Kind:      cmdline.OptionOptional,
 			}
 		}
@@ -308,7 +329,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 			opt = Option{
 				LongName:  name,
 				ShortName: "",
-				Help:      tag.Values[HelpTag],
+				Help:      self.makeHelp(tag.Values[HelpTag], f.Doc),
 				Kind:      cmdline.OptionRequired,
 			}
 		}
@@ -336,6 +357,27 @@ func (self *GenerateConfig) generateOutput() (err error) {
 	defer file.Close()
 
 	return t.Execute(file, self.state)
+}
+
+// helpFromDoc generates help from doc comment.
+func (self *GenerateConfig) makeHelp(tag, doc []string) (out []string) {
+	const col = 80
+	var lt, ld, l = len(tag), len(doc), 0
+	if lt > 0 && ld > 0 {
+		l = 1
+	}
+	l += lt + ld
+	out = make([]string, 0, lt+ld)
+	for _, line := range tag {
+		out = append(out, line)
+	}
+	if lt > 0 && ld > 0 {
+		out = append(out, "")
+	}
+	for _, line := range doc {
+		out = append(out, strings.TrimSpace(strings.TrimPrefix(line, "//")))
+	}
+	return strutils.WrapText(strings.Join(out, " "), col, false)
 }
 
 // fileTemplate is a template for the output go file.

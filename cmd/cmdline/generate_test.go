@@ -3,8 +3,6 @@ package main
 import (
 	"os"
 	"testing"
-
-	"github.com/vedranvuk/bast"
 )
 
 func TestGenerate(t *testing.T) {
@@ -16,19 +14,14 @@ func TestGenerate(t *testing.T) {
 
 	const tagName = "testTag"
 
-	var config = &GenerateConfig{
-		TagName:    tagName,
-		Packages:   []string{"./..."},
-		PackageName: "main",
-		PointerVars: true,
-		OutputFile: "../../_testproject/cmd/testcmd/commands.go",
-		BastConfig: &bast.Config{
-			Dir: "../../_testproject",
-		},
-	}
+	var config = DefaultGenerateConfig()
+	config.Packages =   []string{"./..."}
+	config.PackageName = "main"
+	config.OutputFile = "../../_testproject/cmd/testcmd/commands.go"
+	config.BastConfig.Dir = "../../_testproject"
+
 	if err := config.Generate(); err != nil {
 		t.Fatal(err)
 	}
-	_ = config
 
 }
