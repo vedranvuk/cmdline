@@ -350,11 +350,14 @@ func (self *GenerateConfig) generateOutput() (err error) {
 		return
 	}
 
-	var file *os.File
-	if file, err = os.OpenFile(self.OutputFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm); err != nil {
-		return
-	}
-	defer file.Close()
+	var file = os.Stdout
+	// var file *os.File
+	// if file, err = os.OpenFile(self.OutputFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm); err != nil {
+	// 	return
+	// }
+	// defer file.Close()
+
+
 
 	return t.Execute(file, self.state)
 }
