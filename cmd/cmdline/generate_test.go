@@ -1,12 +1,18 @@
 package main
 
 import (
+	"os"
 	"testing"
 
 	"github.com/vedranvuk/bast"
 )
 
 func TestGenerate(t *testing.T) {
+	var dir, err = os.Getwd()
+	if err != nil {
+		t.Fatal("cannot get working dir")
+	}
+	t.Log("Working dir:", dir)
 
 	const tagName = "testTag"
 
@@ -16,7 +22,7 @@ func TestGenerate(t *testing.T) {
 		PackageName: "main",
 		PointerVars: true,
 		OutputFile: "../../_testproject/cmd/testcmd/commands.go",
-		Bast: &bast.Config{
+		BastConfig: &bast.Config{
 			Dir: "../../_testproject",
 		},
 	}

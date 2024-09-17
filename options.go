@@ -12,6 +12,18 @@ import (
 	"time"
 )
 
+type OptionKind int
+
+const (
+	OptionInvalid OptionKind = iota
+	OptionBoolean
+	OptionOptional
+	OptionRequired
+	OptionIndexed
+	OptionRepeated
+	OptionVariadic
+)
+
 // Option abstracts an option in a slice of Options.
 type Option interface {
 	// GetLongName returns the Option LongName.
@@ -316,7 +328,7 @@ func (self Options) IsParsed(longName string) bool {
 
 // SetIfParsed sets the value to parsed value if option under name was parsed.
 func (self Options) SetIfParsed(longName string, value *string) bool {
-	
+
 	var o Option
 	for _, o = range self {
 		if o.GetLongName() == longName {
@@ -362,7 +374,7 @@ func (self Options) Register(option Option) Options {
 }
 
 // ExclusivityGroup defines a group of option names which are mutually
-// exclusive and may not be passed in arguments at the same time.
+// exclusive and may not be passed together to a command at the same time.
 type ExclusivityGroup []string
 
 // ExclusivityGroups is a group of ExclusivityGroup used to define more than
