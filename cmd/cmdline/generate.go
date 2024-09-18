@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"go/format"
+	"io/fs"
 	"log"
-	"os"
+	"reflect"
 	"strings"
 	"text/template"
+	"text/template/parse"
 
 	"github.com/vedranvuk/bast"
 	"github.com/vedranvuk/cmdline"
@@ -92,9 +97,6 @@ type GenerateConfig struct {
 	// paths to go packages or import paths.
 	Packages []string `cmdline:"name=packages" json:"packages,omitempty"`
 
-	// PointerVars if true generates command variables as pointers.
-	PointerVars bool `cmdline:"name=pointerVars" json:"pointerVars,omitempty"`
-
 	// HelpFromTag if true Adds option help from HelpTag.
 	HelpFromTag bool `cmdline:"name=helpFromTag" json:"helpFromTag,omitempty"`
 
@@ -104,15 +106,8 @@ type GenerateConfig struct {
 	// BastConfig is the bastard ast config.
 	BastConfig *bast.Config `json:"-"`
 
-	// state is the parse state.
-	state struct {
-		// Bast is the parsed Bast, nil until parsed.
-		Bast *bast.Bast
-		// maps package import path to package name.
-		Imports map[string]string
-		// Commands are the parsed Commands.
-		Commands []Command
-	} `json:"-"`
+	// Model is the parsed model.
+	Model `json:"-"`
 }
 
 // DefaultGenerateConfig returns the default [GenerateConfig].
@@ -123,11 +118,25 @@ func DefaultGenerateConfig() (c *GenerateConfig) {
 	c.HelpFromTag = true
 	c.HelpFromDocs = true
 	c.BastConfig = bast.DefaultConfig()
-	c.state.Imports = make(map[string]string)
+	c.Model.ImportMap = make(ImportMap)
 	return
 }
 
+// Generate model.
+
 type (
+	ImportPath  = string
+	PackageName = string
+	ImportMap   = map[ImportPath]PackageName
+
+	Model struct {
+		Bast *bast.Bast
+		ImportMap
+		Commands
+	}
+
+	Commands []Command
+
 	Command struct {
 		Name       string   // command name.
 		Help       string   // help text
@@ -175,13 +184,16 @@ func (self GenerateConfig) Generate() (err error) {
 		return errors.New("no packages specified")
 	}
 
-	if self.state.Bast, err = bast.Load(self.BastConfig, self.Packages...); err != nil {
+	if self.Model.Bast, err = bast.Load(self.BastConfig, self.Packages...); err != nil {
 		return
 	}
 
-	self.state.Imports = make(map[string]string)
+	if self.Model.ImportMap == nil {
+		self.Model.ImportMap = make(ImportMap)
+	}
+	self.Model.ImportMap["github.com/vedranvuk/cmdline"] = ""
 
-	for _, s := range self.state.Bast.AllStructs() {
+	for _, s := range self.Model.Bast.AllStructs() {
 
 		var tag = strutils.Tag{
 			Keys:              AllTags,
@@ -190,7 +202,9 @@ func (self GenerateConfig) Generate() (err error) {
 		}
 
 		if err = tag.ParseDocs(s.Doc); err != nil {
-			return
+			if err != strutils.ErrTagNotFound {
+				return
+			}
 		}
 
 		var c = Command{
@@ -203,10 +217,11 @@ func (self GenerateConfig) Generate() (err error) {
 			continue
 		}
 
-		var name = tag.First(NameTag)
-		if name == "" {
-			err = errors.New("invalid name tag, no value")
-			return
+		var name = s.Name
+		if tag.Exists(NameTag) {
+			if name = tag.First(NameTag); name == "" {
+				err = errors.New("invalid name tag, no value")
+			}
 		}
 
 		var (
@@ -218,12 +233,12 @@ func (self GenerateConfig) Generate() (err error) {
 			return
 		}
 
-		self.state.Imports[s.GetPackage().Path] = s.GetPackage().Name
+		self.Model.ImportMap[s.GetPackage().Path] = s.GetPackage().Name
 		if err = self.parseStruct(s, "", &c); err != nil {
 			return
 		}
 
-		self.state.Commands = append(self.state.Commands, c)
+		self.Model.Commands = append(self.Model.Commands, c)
 	}
 
 	if err = self.generateOutput(); err != nil {
@@ -259,8 +274,8 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	if imp != nil {
 		var _, name, valid = strings.Cut(f.Type, ".")
 		if valid {
-			if s := self.state.Bast.PkgStruct(imp.Path, name); s != nil {
-				self.state.Imports[imp.Path] = ""
+			if s := self.Model.Bast.PkgStruct(imp.Path, name); s != nil {
+				self.Model.ImportMap[imp.Path] = ""
 				return self.parseStruct(s, path, c)
 			}
 		}
@@ -298,12 +313,12 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 		err = errors.New("optional and required tag keys are mutually exclusive")
 		return
 	}
-	if !(optional&&required){
+	if !(optional && required) {
 		optional = true
 	}
 
 	var opt Option
-	var bt = self.state.Bast.ResolveBasicType(f.Type)
+	var bt = self.Model.Bast.ResolveBasicType(f.Type)
 	switch bt {
 	case "":
 		log.Printf("Cannot determine basic type for %s, skipping.\n", f.Type)
@@ -345,27 +360,68 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 // generateOutput generates output go file with command definitions.
 func (self *GenerateConfig) generateOutput() (err error) {
 
-	var t *template.Template
-	if t, err = template.New("cmdline").Parse(fileTemplate); err != nil {
+	var buf []byte
+	if buf, err = fs.ReadFile(FS(), "commands.tmpl"); err != nil {
 		return
 	}
 
-	var file = os.Stdout
+	var (
+		t *template.Template
+		m = parse.ParseComments | parse.SkipFuncCheck
+	)
+	if t, err = parseTemplateWithMode("cmdline", string(buf), m); err != nil {
+		return
+	}
+
+	var bb = bytes.NewBuffer(nil)
+	if err = t.Execute(bb, self); err != nil {
+		return
+	}
+
+	var source []byte
+	if source, err = format.Source(bb.Bytes()); err != nil {
+		return
+	}
+	
+	fmt.Print(string(source))
+	return nil
+
+	// var file = os.Stdout
 	// var file *os.File
 	// if file, err = os.OpenFile(self.OutputFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm); err != nil {
 	// 	return
 	// }
 	// defer file.Close()
 
+	// return t.Execute(file, self)
+}
 
-
-	return t.Execute(file, self.state)
+// parseTemplateWithMode parses a template with parse mode.
+// Downside is that built in funcmap is not added.
+func parseTemplateWithMode(name, text string, mode parse.Mode) (*template.Template, error) {
+	var (
+		t       = parse.New(name)
+		treeSet = make(map[string]*parse.Tree)
+	)
+	t.Mode = mode
+	var tree, err = t.Parse(text, "{{", "}}", treeSet)
+	if err != nil {
+		return nil, err
+	}
+	tmpl := template.New(name)
+	return tmpl.AddParseTree(name, tree)
 }
 
 // helpFromDoc generates help from doc comment.
 func (self *GenerateConfig) makeHelp(tag, doc []string) (out []string) {
 	const col = 80
 	var lt, ld, l = len(tag), len(doc), 0
+	if !self.HelpFromTag {
+		lt = 0
+	}
+	if !self.HelpFromDocs {
+		ld = 0
+	}
 	if lt > 0 && ld > 0 {
 		l = 1
 	}
@@ -378,55 +434,60 @@ func (self *GenerateConfig) makeHelp(tag, doc []string) (out []string) {
 		out = append(out, "")
 	}
 	for _, line := range doc {
-		out = append(out, strings.TrimSpace(strings.TrimPrefix(line, "//")))
+		line = strings.TrimSpace(strings.TrimPrefix(line, "//"))
+		if strings.HasPrefix(line, "go:") {
+			continue
+		}
+		if strings.HasPrefix(line, self.TagName+":") {
+			continue
+		}
+		out = append(out, line)
 	}
 	return strutils.WrapText(strings.Join(out, " "), col, false)
 }
 
-// fileTemplate is a template for the output go file.
-const fileTemplate = `
-package {{.PackageName}}
+// LazyStructCopy copies values from src fields that have a coresponding field
+// in dst to that field in dst. Fields must have same name and type. Tags are
+// ignored. src and dest must be of struct type and addressable.
+func LazyStructCopy(src, dst interface{}) error {
 
-import (
-	{{template "Imports" .}}
-)
+	var (
+		dstErr = errors.New("destination must be a pointer to a struct")
+		srcv   = reflect.Indirect(reflect.ValueOf(src))
+		dstv   = reflect.ValueOf(dst)
+	)
 
-var (
-	{{template "StructVars" .}}
-)
-
-var (
-	{{template "Commands" .}}
-)
-
-{{define "Imports"}}{{range .Imports}}
-	{{.}}
-{{end}}
-{{end}}
-
-{{define "StructVars"}}{{range .Commands}}
-	{{.Name}}Var = {{.StructType}}
-{{end}}
-{{end}}
-
-{{define "Commands"}}{{range $command := .Commands}}
-	{{$command.Name}}Cmd = &cmdline.Command{
-		Name: {{.Name}},
-		Help: {{.Help}},
-		Options: []cmdline.Option{{range $command.Options}}
-			{{template "Option" .}}
-		{{end}}
-		}
-	{{end}}
+	if srcv.Kind() != reflect.Struct {
+		return errors.New("source must be a struct")
 	}
-{{end}}
 
-{{define "Option"}}
-			&{{.Signature}}{
-				LongName: {{.LongName}},
-				ShortName: {{.ShortName}},
-				Help: {{.Help}},
-				MappedValue: &{{.LongName}},
-			},
-{{end}}
-`
+	if dstv.Kind() != reflect.Pointer {
+		return dstErr
+	}
+	dstv = reflect.Indirect(dstv)
+	if dstv.Kind() != reflect.Struct {
+		return dstErr
+	}
+
+	for i := 0; i < srcv.NumField(); i++ {
+		var (
+			name = srcv.Type().Field(i).Name
+			tgt  = dstv.FieldByName(name)
+		)
+		if !tgt.IsValid() {
+			continue
+		}
+		if tgt.Kind() != srcv.Field(i).Kind() {
+			continue
+		}
+		if name == "_" {
+			continue
+		}
+		if name[0] >= 97 && name[0] <= 122 {
+			continue
+		}
+		tgt.Set(srcv.Field(i))
+	}
+
+	return nil
+}

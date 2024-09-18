@@ -5,8 +5,8 @@ go 1.22.5
 toolchain go1.23.1
 
 require (
-	github.com/vedranvuk/bast v0.0.0-20240914200415-d8832853feb3
-	github.com/vedranvuk/strutils v0.0.0-20240916185855-36cf4a8f640a
+	github.com/vedranvuk/bast v0.0.0-20240915123421-4829e1adae3f
+	github.com/vedranvuk/strutils v0.0.0-20240917173014-3d1866d10a9d
 )
 
 require (

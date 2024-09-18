@@ -1,5 +1,3 @@
-github.com/vedranvuk/bast v0.0.0-20240913194321-b97f384711f2 h1:B5xoFqV3bcRCI1HjF6u3nKo4RXsmJDC1YXuUZ9dcy2Y=
-github.com/vedranvuk/bast v0.0.0-20240913194321-b97f384711f2/go.mod h1:1lfrJ7hSCwNgrgVUDrdpk8kvc5JBxZuvL3em67HHF7w=
 github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c h1:kLK2HmClCCwlJXhfB1OzK8GZasOf+yJRrX0k2Dbh5iw=
 github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c/go.mod h1:RIQ2p8LOPvgH358T4gmW09rVIdgRwUOaHVLkGVUAKr4=
 golang.org/x/mod v0.21.0 h1:vvrHzRwRfVKSiLrG+d4FMl/Qi4ukBCE6kZlTUkDYRT0=
