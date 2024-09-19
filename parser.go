@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 )
 
-// TODO Option exclusivity groups.
-
 var (
 	// ErrNoArgs is returned by Parse if no arguments were given for parsing.
 	ErrNoArgs = errors.New("no arguments")
@@ -30,15 +28,27 @@ const (
 // and other options packed into a single struct for use as an argument to
 // one of the Parse methods.
 type Config struct {
+
 	// Arguments are the arguments to parse. This is usually set to os.Args[1:].
 	Arguments Arguments
+
+
 	// Globals are the global Options, independant of any defined commands.
+	//
+	// They are parsed from arguments that precede any command invocation.
+	// Their state can be inspected either from [Config.GlobalsHandler] or
+	// after parsing by inspecting the Globals directly.
 	Globals Options
-	// GlobalsHandler is the handler for Globals.
-	// It is optional and gets invoked before any commands are parsed.
+
+	// GlobalsHandler is an optional handler for Globals.
+	//
+	// It is invoked if any global options get parsed and before any command 
+	// handlers are invoked.
 	GlobalsHandler Handler
+
 	// GlobalExclusivityGroups are exclusivity groups for Globals.
 	GlobalExclusivityGroups ExclusivityGroups
+
 	// Commands is the root command set.
 	Commands Commands
 	// Usage is a function to call when no arguments are given to Parse.

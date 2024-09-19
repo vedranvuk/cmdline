@@ -153,12 +153,15 @@ func (self Commands) AnyExecuted() bool {
 type VisitCommandFunc func(c *Command) bool
 
 // Walk calls f for each command in self, recursively.
+// Order is top-down, i.e. parents first.
 func (self Commands) Walk(f VisitCommandFunc) { walkCommands(self, f, true, true) }
 
 // WalkExecuted calls f for each executed command in self, recursively.
+// Order is top-down, i.e. parents first.
 func (self Commands) WalkExecuted(f VisitCommandFunc) { walkCommands(self, f, true, false) }
 
 // WalkNotExecuted calls f for each not executed command in self, recursively.
+// Order is top-down, i.e. parents first.
 func (self Commands) WalkNotExecuted(f VisitCommandFunc) { walkCommands(self, f, false, true) }
 
 // walk walks c calling f for each.

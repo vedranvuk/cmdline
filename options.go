@@ -12,15 +12,23 @@ import (
 	"time"
 )
 
+// OptionKind specifies the kind of a Command Option.
 type OptionKind int
 
 const (
+	// OptionInvalid is an invalid or unknown type of option.
 	OptionInvalid OptionKind = iota
+	// OptionBoolean is a Boolean Option.
 	OptionBoolean
+	// OptionOptional is an Optional Option.
 	OptionOptional
+	// OptionRequired is a Required Option.
 	OptionRequired
+	// OptionIndexed is an Indexed Option.
 	OptionIndexed
+	// OptionRepeated is a Repeated Option.
 	OptionRepeated
+	// OptionVariadic is a Variadic Option.
 	OptionVariadic
 )
 
@@ -54,8 +62,10 @@ type Option interface {
 // State represents the Option parse state and is embedded at the top level
 // in all supported Option types.
 type State struct {
+
 	// IsParsed will be set to true if the Option gets parsed from arguments.
 	IsParsed bool
+
 	// RawValues will contain any arguments given as a value to the Option.
 	RawValues []string
 }
@@ -65,18 +75,26 @@ type State struct {
 // A Boolean option is an option that takes no argument and is simply marked as
 // parsed if found in arguments.
 type Boolean struct {
-	// LongName is the long, more descriptive option name. It must contain no
-	// spaces and must be unique in an Options. It is used as the key to
-	// retrieve this option state from its Command context.
+	// LongName is the long, more descriptive option name. 
+	//
+	// It must contain no spaces and must be unique in Options as it is the 
+	// primary key for Option addressing. 
+	//
 	// An argument with a long prefix is matched against this property.
 	LongName string
+
 	// ShortName is the short option name consisting of a single alphanumeric.
+	//
 	// An argument with a short prefix is matched against this property.
 	ShortName string
-	// Help is the short help text.
+
+	// Help is the option help text.
 	Help string
-	// MappedValue is an optional *bool that will be set to true if this option
-	// gets parsed.
+
+	// MappedValue is an optional variable that will be set from an argument 
+	// given to an Option at parse time.
+	//
+	// Boolean Option takes a *bool which will be set true if Option is parsed. 
 	MappedValue any
 
 	// State embeds the base State properties.
@@ -100,18 +118,26 @@ func (self Options) Boolean(longName, shortName, help string) Options {
 // not parsed from arguments. Optional option takes a single argument as value
 // which can be retrieved from Command context using Value("option_name")
 type Optional struct {
-	// LongName is the long, more descriptive option name. It must contain no
-	// spaces and must be unique in an Options. It is used as the key to
-	// retrieve this option state from its Command context.
+	// LongName is the long, more descriptive option name. 
+	//
+	// It must contain no spaces and must be unique in Options as it is the 
+	// primary key for Option addressing. 
+	//
 	// An argument with a long prefix is matched against this property.
 	LongName string
+
 	// ShortName is the short option name consisting of a single alphanumeric.
+	//
 	// An argument with a short prefix is matched against this property.
 	ShortName string
-	// Help is the short help text.
+
+	// Help is the option help text.
 	Help string
-	// MappedValue is an optional pointer to one of supported variable types
-	// that the option will get parsed into. For details see rawToMapped.
+
+	// MappedValue is an optional variable that will be set from an argument 
+	// given to an Option at parse time.
+	//
+	// Boolean Option takes a *bool which will be set true if Option is parsed. 
 	MappedValue any
 
 	// State embeds the base State properties.
