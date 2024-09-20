@@ -151,7 +151,7 @@ func (self *Config) PrintUsage() {
 // Variadic Option definition, it may not have any sub commands as Variadic
 // Option consumes all remaining arguments as its values and stops further
 // sub Command parsing.
-func (self *Config) Parse(ctx context.Context) (err error) {
+func (self *Config)  Parse(ctx context.Context) (err error) {
 
 	// Verify and store context.
 	if self.context = ctx; self.context == nil {

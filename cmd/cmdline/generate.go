@@ -7,6 +7,7 @@ import (
 	"go/format"
 	"io/fs"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"text/template"
@@ -24,6 +25,8 @@ const (
 	DefaultOutputFile = "cmdline.go"
 )
 
+//go:generate cmdline generate
+
 // cmdline:"name=generate"
 // cmdline:"help=Generates commands from structs parsed from packages."
 type GenerateConfig struct {
@@ -32,28 +35,38 @@ type GenerateConfig struct {
 	// doc comments.
 	//
 	// Default: DefaultNameTag.
-	TagName string `cmdline:"name=tagName" json:"tagName,omitempty"`
+	TagName string `cmdline:"name=tag-name" json:"tagName,omitempty"`
 
 	// OutputFile is the output file that will contain generated commands.
 	// It can be a full or relative path to a go file and if ommited a default
 	// value "cmdline.go" is used.
-	OutputFile string `cmdline:"name=outputFile,required" json:"outputFile,omitempty"`
+	OutputFile string `cmdline:"name=output-file,required" json:"outputFile,omitempty"`
 
 	// PackageName is the name of the package generated file belongs to.
-	PackageName string `cmdline:"packageName" json:"packageName,omitempty"`
+	PackageName string `cmdline:"package-name" json:"packageName,omitempty"`
 
 	// Packages is a list of packages to parse. It is a list of relative or full
 	// paths to go packages or import paths.
 	Packages []string `cmdline:"name=packages" json:"packages,omitempty"`
 
 	// HelpFromTag if true Adds option help from HelpTag.
-	HelpFromTag bool `cmdline:"name=helpFromTag" json:"helpFromTag,omitempty"`
+	HelpFromTag bool `cmdline:"name=help-from-tag" json:"helpFromTag,omitempty"`
 
 	// HelpFromDocs if true adds option help from srtuct field docs.
-	HelpFromDocs bool `cmdline:"name=helpFromDocs" json:"helpFromDocs,omitempty"`
+	HelpFromDocs bool `cmdline:"name=help-from-docs" json:"helpFromDocs,omitempty"`
+
+	// Print prints the output to stdout.
+	//
+	// Default: true
+	Print bool `cmdline:"name=print-to-stdout" json:"print"`
+
+	// NoWrite if true disables writing to output file.
+	//
+	// Default: false
+	NoWrite bool `cmdline:"name=no-write"`
 
 	// BastConfig is the bastard ast config.
-	BastConfig *bast.Config `json:"-"`
+	BastConfig *bast.Config `json:"-,"`
 
 	// Model is the parsed model.
 	Model `json:"-"`
@@ -66,7 +79,10 @@ func DefaultGenerateConfig() (c *GenerateConfig) {
 	c.OutputFile = DefaultOutputFile
 	c.HelpFromTag = true
 	c.HelpFromDocs = true
+	c.Print = true
+	c.NoWrite = false
 	c.BastConfig = bast.DefaultConfig()
+	c.BastConfig.HaltOnTypeCheckErrors = false
 	c.Model.ImportMap = make(ImportMap)
 	return
 }
@@ -154,12 +170,14 @@ type (
 		// doc comments.
 		Help string // help text
 
-		// StructTypeName is the name of the struct type that is the source of
-		// thos generated Command.
-		StructTypeName string // type name of source struct.
+		// SourceStructType is the name of the struct type from which the
+		// Command is generated..
+		SourceStructType string
 
-		// StructPackageName is the base name of the package where source struct resides.
-		StructPackageName string
+		// SourceStructPackageName is the base name of the package in which
+		// Source struct is defined. Used as selector prefix in generated
+		// source.
+		SourceStructPackageName string
 
 		// Options to generate.
 		Options []Option
@@ -168,15 +186,25 @@ type (
 	// Option defines a cmdline.Option to generate in a command. It is generated
 	// from a source struct field.
 	Option struct {
-		LongName  string   // option long name
-		ShortName string   // option short name
-		Help      []string // help text
+		// LongName is the long name for the Option.
+		LongName string
+		// ShortName is the short name for the option.
+		ShortName string
+		// Help is the option help text.
+		Help []string
+		// BasicType is the determined basic type of the field for which Option
+		// is generated.
 		BasicType string
-		Kind      cmdline.OptionKind
+		// Kind is the [cmdline.Option] kind to generate.
+		Kind cmdline.OptionKind
 	}
 )
 
-// Signature returns the option type signature, with "cmdline."" selector
+func (self Command) Signature() string {
+	return self.SourceStructPackageName + "." + self.SourceStructType
+}
+
+// Signature returns the option type signature, with "cmdline." selector
 // prefix. Used from template that generates the go commands file.
 func (self Option) Signature() string {
 	switch self.Kind {
@@ -219,21 +247,24 @@ func (self GenerateConfig) Generate() (err error) {
 	for _, s := range self.Model.Bast.AllStructs() {
 
 		var tag = strutils.Tag{
-			Keys:              AllTags,
-			TagName:           self.TagName,
+			KnownPairKeys:     AllTags,
+			TagKey:            self.TagName,
 			ErrorOnUnknownKey: true,
 		}
 
-		if err = tag.ParseDocs(s.Doc); err != nil {
-			if err != strutils.ErrTagNotFound {
-				return
+		for _, line := range self.uncommentDocs(s.Doc) {
+			if err = tag.Parse(line); err != nil {
+				if err != strutils.ErrTagNotFound {
+					return
+				}
 			}
 		}
 
 		var c = Command{
-			Name:           s.Name,
-			Help:           strings.Join(tag.Values[HelpKey], "\n"),
-			StructTypeName: s.Name,
+			Name:                    s.Name,
+			Help:                    strings.Join(tag.Values[HelpKey], "\n"),
+			SourceStructType:        s.Name,
+			SourceStructPackageName: s.GetPackage().Name,
 		}
 
 		if tag.Exists(IgnoreKey) {
@@ -305,19 +336,21 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	}
 
 	var tag = strutils.Tag{
-		Keys:              AllTags,
-		TagName:           self.TagName,
+		KnownPairKeys:     AllTags,
+		TagKey:            self.TagName,
 		ErrorOnUnknownKey: true,
 	}
 
-	if err = tag.ParseStructTag(f.Tag); err != nil {
+	if err = tag.Parse(f.Tag); err != nil {
 		if err != strutils.ErrTagNotFound {
 			return
 		}
 	}
-	if err = tag.ParseDocs(f.Doc); err != nil {
-		if err != strutils.ErrTagNotFound {
-			return
+	for _, line := range self.uncommentDocs(f.Doc) {
+		if err = tag.Parse(line); err != nil {
+			if err != strutils.ErrTagNotFound {
+				return
+			}
 		}
 	}
 
@@ -350,6 +383,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 			LongName:  name,
 			ShortName: "",
 			Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
+			Kind:      cmdline.OptionBoolean,
 		}
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
@@ -393,30 +427,42 @@ func (self *GenerateConfig) generateOutput() (err error) {
 		m = parse.ParseComments | parse.SkipFuncCheck
 	)
 	if t, err = parseTemplateWithMode("cmdline", string(buf), m); err != nil {
-		return
+		return fmt.Errorf("parse output template: %w", err)
 	}
 
 	var bb = bytes.NewBuffer(nil)
 	if err = t.Execute(bb, self); err != nil {
-		return
+		return fmt.Errorf("execute output template: %w", err)
 	}
+	fmt.Print(bb.String())
 
 	var source []byte
 	if source, err = format.Source(bb.Bytes()); err != nil {
-		return
+		return fmt.Errorf("format output: %w", err)
 	}
 
-	fmt.Print(string(source))
+	if self.Print {
+		if _, err = fmt.Print(string(source)); err != nil {
+			return fmt.Errorf("print to stdout: %w", err)
+		}
+	}
+
+	if !self.NoWrite {
+		var file *os.File
+		if file, err = os.OpenFile(
+			self.OutputFile,
+			os.O_CREATE|os.O_TRUNC|os.O_RDWR,
+			os.ModePerm,
+		); err != nil {
+			return
+		}
+		defer file.Close()
+		if _, err = file.Write(source); err != nil {
+			return fmt.Errorf("write output file: %w", err)
+		}
+	}
+
 	return nil
-
-	// var file = os.Stdout
-	// var file *os.File
-	// if file, err = os.OpenFile(self.OutputFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm); err != nil {
-	// 	return
-	// }
-	// defer file.Close()
-
-	// return t.Execute(file, self)
 }
 
 // parseTemplateWithMode parses a template with parse mode.
@@ -435,6 +481,16 @@ func parseTemplateWithMode(name, text string, mode parse.Mode) (*template.Templa
 	return tmpl.AddParseTree(name, tree)
 }
 
+// uncommentDocs removes double-slash comment and trims leading and trailing
+// space prefix from each in in and returns it.
+func (self *GenerateConfig) uncommentDocs(in []string) (out []string) {
+	out = make([]string, 0, len(in))
+	for _, line := range in {
+		out = append(out, strings.TrimSpace(strings.TrimPrefix(line, "//")))
+	}
+	return
+}
+
 // helpFromDoc generates help from doc comment.
 func (self *GenerateConfig) makeHelp(tag, doc []string) (out []string) {
 	const col = 80
@@ -449,7 +505,7 @@ func (self *GenerateConfig) makeHelp(tag, doc []string) (out []string) {
 		l = 1
 	}
 	l += lt + ld
-	out = make([]string, 0, lt+ld)
+	out = make([]string, 0, l)
 	for _, line := range tag {
 		out = append(out, line)
 	}

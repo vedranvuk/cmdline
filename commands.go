@@ -20,6 +20,11 @@ import (
 // execution and the error is pushed back to the Set.Parse() caller.
 type Handler func(Context) error
 
+// NopHandler is an no-op handler that just returns a nil error.
+// It can be used as a placeholder to skip Command Handler implementation and
+// allow for the command chain execution to continue.
+var NopHandler = func(Context) error { return nil }
+
 // Context is passed to the Command handler that allows inspection of
 // Command's Options states. It wraps the standard context passed to Config.Parse
 // possibly via Parse or ParseCtx.
@@ -34,7 +39,7 @@ type Context interface {
 	// SetIfParsed sets the value of the second parameter to the parsed value
 	// if option named with first parameter was parsed.
 	//
-	// Value is set from first value in RawValues which could be empty. If 
+	// Value is set from first value in RawValues which could be empty. If
 	// RawValues are empty value is not set.
 	//
 	// It returns truth if value was set.
@@ -82,33 +87,34 @@ func (self RawValues) First() string {
 	return ""
 }
 
-// NopHandler is an no-op handler that just returns a nil error.
-// It can be used as a placeholder to skip Command Handler implementation and
-// allow for the command chain execution to continue.
-var NopHandler = func(Context) error { return nil }
-
 // Command defines a command invocable by name.
 type Command struct {
 	// Name is the name of the Command by which it is invoked from arguments.
 	// Command name is required, must not be empty and must be unique in
 	// Commands.
 	Name string
+	
 	// Help is the short Command help text that should prefferably fit
 	// the width of a standard terminal.
 	Help string
+
 	// Handler is the function to call when the Command gets invoked from
 	// arguments during parsing.
 	Handler Handler
+
 	// SubCommands are this Command's sub commands. Command invocation can be
 	// chained as described in the Parse method. SubCommands are optional.
 	SubCommands Commands
+
 	// Options are this Command's options. Options are optional :|
 	Options Options
+
 	// RequireSubExecution if true, will raise an error if none of this
 	// Command's SubCommands were executed. The setting is ignored if Command
 	// has no SubCommands defined.
 	// Defaults to false.
 	RequireSubExecution bool
+
 	// ExclusivityGroups are the exclusivity groups for this Command's Options.
 	// If more than one Option from an ExclusivityGroup is passed in arguments
 	// Parse/ParseCtx will return an error.

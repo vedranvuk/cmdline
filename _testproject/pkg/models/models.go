@@ -12,6 +12,7 @@ type Options struct {
 }
 
 type Config struct {
-	Name string
-	Age  int
+	Name       string
+	Age        int
+	Subscribed bool
 }

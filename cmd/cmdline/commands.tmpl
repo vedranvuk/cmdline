@@ -2,16 +2,17 @@
 
 package {{.PackageName}}
 
-import ({{range $path, $name := .ImportMap}}
+import (
+	"os"
+	{{range $path, $name := .ImportMap}}
 	{{if eq $name ""}}"{{print $path}}"{{else}}{{print $name}} "{{print $path}}"{{end}}{{end}}
 )
 
 var ({{range .Commands}}
-	{{.Name}}Var = new({{.StructType}}){{end}}
+	{{.Name}}Var = new({{.Signature}}){{end}}
 )
 
-var (
-	{{range $command := .Commands}}
+var ({{range $command := .Commands}}
 	{{$command.Name}}Cmd = &cmdline.Command{
 		Name: "{{.Name}}",
 		Help: "{{.Help}}",
@@ -23,7 +24,37 @@ var (
 				MappedValue: &{{$command.Name}}Var.{{.LongName}},
 			},{{end}}
 		},
+		Handler: cmdline.NopHandler,
 	}{{end}}
 )
+
+// parseCmdLine parses the command line into defined commands.
+func cmdlineConfig() (*cmdline.Config, error) {
+
+	var config = &cmdline.Config{
+		Arguments: os.Args[1:],
+		Commands: cmdline.Commands{
+			OptionsCmd,
+			ConfigCmd,
+		},
+	}
+
+	config.Commands.Register(			
+		&cmdline.Command{
+			Name: "help",
+			Help: "Shows help.",
+			Handler: func(c cmdline.Context) error {
+				cmdline.PrintConfig(os.Stdout, config)
+				return nil
+			},
+		},
+	)
+
+	if err := config.Parse(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+
+	return config, nil
+}
 
 

@@ -6,6 +6,7 @@ import (
 )
 
 func TestGenerate(t *testing.T) {
+	os.Remove("../../_testproject/cmd/testcmd/commands.go")
 	var dir, err = os.Getwd()
 	if err != nil {
 		t.Fatal("cannot get working dir")
