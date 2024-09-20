@@ -56,7 +56,7 @@ var (
 )
 
 // parseCmdLine parses the command line into defined commands.
-func cmdlineConfig() (*cmdline.Config, error) {
+func cmdlineConfig() *cmdline.Config {
 
 	var config = &cmdline.Config{
 		Arguments: os.Args[1:],
@@ -77,9 +77,5 @@ func cmdlineConfig() (*cmdline.Config, error) {
 		},
 	)
 
-	if err := config.Parse(context.Background()); err != nil {
-		log.Fatal(err)
-	}
-
-	return config, nil
+	return config
 }

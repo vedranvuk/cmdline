@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"embed"
 	"errors"
 	"fmt"
 	"go/format"
@@ -18,15 +19,27 @@ import (
 	"github.com/vedranvuk/strutils"
 )
 
+//go:embed generate.tmpl
+var resources embed.FS
+
+// FS returns the embedded resources as a file system.
+func FS() embed.FS { return resources }
+
 const (
-	// DefaultTagName is the default name of a tag parsed by cmdline package.
-	DefaultTagName = "cmdline"
-	// DefaultOutputFile is the filename of the default generate output file.
+	// DefaultTagKey is the default key of a tag value parsed by cmdline.
+	DefaultTagKey = "cmdline"
+
+	// DefaultOutputFile is the default base name of an output go file that
+	// will contain generated code.
 	DefaultOutputFile = "cmdline.go"
 )
 
-//go:generate cmdline generate
-
+// GenerateConfig is the configuration for a command that generates
+// [cmdline.Commands] from structs.
+//
+// For each source struct a command is generated with options that reflect
+// fields in the source struct.
+//
 // cmdline:"name=generate"
 // cmdline:"help=Generates commands from structs parsed from packages."
 type GenerateConfig struct {
@@ -75,7 +88,7 @@ type GenerateConfig struct {
 // DefaultGenerateConfig returns the default [GenerateConfig].
 func DefaultGenerateConfig() (c *GenerateConfig) {
 	c = new(GenerateConfig)
-	c.TagName = DefaultTagName
+	c.TagName = DefaultTagKey
 	c.OutputFile = DefaultOutputFile
 	c.HelpFromTag = true
 	c.HelpFromDocs = true
@@ -226,7 +239,7 @@ func (self Option) Signature() string {
 func (self GenerateConfig) Generate() (err error) {
 
 	if self.TagName == "" {
-		self.TagName = DefaultTagName
+		self.TagName = DefaultTagKey
 	}
 	if self.OutputFile == "" {
 		self.OutputFile = DefaultOutputFile
@@ -324,7 +337,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 		path += f.Type
 	}
 
-	var imp = f.PackageImportBySelectorExpr(f.Type)
+	var imp = f.ImportSpecBySelectorExpr(f.Type)
 	if imp != nil {
 		var _, name, valid = strings.Cut(f.Type, ".")
 		if valid {
@@ -374,10 +387,9 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	}
 
 	var opt Option
-	var bt = self.Model.Bast.ResolveBasicType(f.Type)
-	switch bt {
+	switch opt.BasicType = self.Model.Bast.ResolveBasicType(f.Type); opt.BasicType {
 	case "":
-		log.Printf("Cannot determine basic type for %s, skipping.\n", f.Type)
+		log.Printf("Cannot determine basic type for field %s, skipping.\n", f.Type)
 	case "bool":
 		opt = Option{
 			LongName:  name,
@@ -406,7 +418,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 			}
 		}
 	default:
-		log.Printf("Unknown basic type: %s\n", bt)
+		log.Printf("Unknown basic type: %s\n", opt.BasicType)
 	}
 
 	c.Options = append(c.Options, opt)
@@ -418,7 +430,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 func (self *GenerateConfig) generateOutput() (err error) {
 
 	var buf []byte
-	if buf, err = fs.ReadFile(FS(), "commands.tmpl"); err != nil {
+	if buf, err = fs.ReadFile(FS(), "generate.tmpl"); err != nil {
 		return
 	}
 
@@ -491,7 +503,7 @@ func (self *GenerateConfig) uncommentDocs(in []string) (out []string) {
 	return
 }
 
-// helpFromDoc generates help from doc comment.
+// helpFromDoc generates help from tag and doc comment.
 func (self *GenerateConfig) makeHelp(tag, doc []string) (out []string) {
 	const col = 80
 	var lt, ld, l = len(tag), len(doc), 0
