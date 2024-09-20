@@ -18,71 +18,20 @@ import (
 )
 
 const (
-	// DefaultTagName is the default name of a struct tag read by cmdline package.
+	// DefaultTagName is the default name of a tag parsed by cmdline package.
 	DefaultTagName = "cmdline"
 	// DefaultOutputFile is the filename of the default generate output file.
 	DefaultOutputFile = "cmdline.go"
 )
 
-// TagKey is a known cmdline key read from the cmdline tag in a struct field
-// being bound to.
-//
-// It can appear in a struct tag or a doc comment of a struct being bound to.
-// In a struct doc comment it can be specified multiple times.
-// Some keys take values in key=value format.
-type TagKey = string
-
-const (
-	// NameTag is used on a source struct and specifies the name of the command
-	// that represents the struct being bound to.
-	//
-	// It is also the name of the generated variable of a struct manipulated by
-	// the command options.
-	//
-	// It takes a single value in the key=value format that defines the command
-	// name. E.g.: name=MyStruct.
-	NameTag TagKey = "name"
-
-	// HelpTag is used on a source struct and specifies the help text to be set
-	// with the command that will represent the struct.
-	//
-	// It takes a single value in the key=value format that defines the command
-	// help. E.g.: help=This is a help text for ca command representing a
-	// bound struct.
-	//
-	// Help text cannnot span multiple lines, it is a one-line shown to user
-	// when cmdline config help is requested.
-	HelpTag TagKey = "help"
-
-	// IgnoreTag is read from struct fields and specifies that the tagged field
-	// should be excluded from generated command options.
-	//
-	// It takes no values.
-	IgnoreTag TagKey = "ignore"
-
-	// OptionalTag is read from struct fields and specifies that the tagged
-	// field should use the Optional option.
-	//
-	// It takes no values.
-	OptionalTag TagKey = "optional"
-
-	// RequiredTag is read from struct fields and specifies that the tagged
-	// field should use the Required option.
-	//
-	// It takes no values.
-	RequiredTag TagKey = "required"
-)
-
-// AllTags are all supported tags.
-var AllTags = []string{NameTag, HelpTag, IgnoreTag, OptionalTag, RequiredTag}
-
 // cmdline:"name=generate"
 // cmdline:"help=Generates commands from structs parsed from packages."
-// cmdline:"help=."
 type GenerateConfig struct {
 
 	// TagName is the name of the tag read by cmdline from struct tags or
-	// struct doc comments. If ommitted the default "cmdline" is read.
+	// doc comments.
+	//
+	// Default: DefaultNameTag.
 	TagName string `cmdline:"name=tagName" json:"tagName,omitempty"`
 
 	// OutputFile is the output file that will contain generated commands.
@@ -122,28 +71,102 @@ func DefaultGenerateConfig() (c *GenerateConfig) {
 	return
 }
 
+// TagKey is a known key read from the a cmdline tag value.
+//
+// It can appear in a struct tag or a doc comment of a struct being bound to.
+// In a struct doc comment it can be specified multiple times.
+// Some keys take values in key=value format.
+type TagKey = string
+
+const (
+	// NameKey is used on a source struct and specifies the name of the command
+	// that represents the struct being bound to.
+	//
+	// It is also the name of the generated variable of a struct manipulated by
+	// the command options.
+	//
+	// It takes a single value in the key=value format that defines the command
+	// name. E.g.: name=MyStruct.
+	NameKey TagKey = "name"
+
+	// HelpKey is used on a source struct and specifies the help text to be set
+	// with the command that will represent the struct.
+	//
+	// It takes a single value in the key=value format that defines the command
+	// help. E.g.: help=This is a help text for ca command representing a
+	// bound struct.
+	//
+	// Help text cannnot span multiple lines, it is a one-line shown to user
+	// when cmdline config help is requested.
+	HelpKey TagKey = "help"
+
+	// IgnoreKey is read from struct fields and specifies that the tagged field
+	// should be excluded from generated command options.
+	//
+	// It takes no values.
+	IgnoreKey TagKey = "ignore"
+
+	// OptionalKey is read from struct fields and specifies that the tagged
+	// field should use the Optional option.
+	//
+	// It takes no values.
+	OptionalKey TagKey = "optional"
+
+	// RequiredKey is read from struct fields and specifies that the tagged
+	// field should use the Required option.
+	//
+	// It takes no values.
+	RequiredKey TagKey = "required"
+)
+
+// AllTags is a slice of  all supported cmdline tags.
+var AllTags = []string{NameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey}
+
 // Generate model.
 
 type (
-	ImportPath  = string
+	// ImportPath is a package import path.
+	ImportPath = string
+	// PackageName is a base name of a package.
 	PackageName = string
-	ImportMap   = map[ImportPath]PackageName
+	// ImportMap is a map of package import paths to package base names.
+	ImportMap = map[ImportPath]PackageName
 
+	// Model is the top level structure that holds the data from which to
+	// generate the output go source file containing generated commands.
 	Model struct {
 		Bast *bast.Bast
 		ImportMap
 		Commands
 	}
 
+	// Commands is a slice of commands to be generated.
 	Commands []Command
 
+	// Command defines a cmdline.Command to be generated. It is generated from a
+	// source struct.
 	Command struct {
-		Name       string   // command name.
-		Help       string   // help text
-		StructType string   // type name of source struct.
-		Options    []Option // options to generate
+		// Name is the command name. It is generated from the source struct type
+		// name or specified via cmdline tag in struct doc comments.
+		Name string
+
+		// Help text is the COmmand help text generated from source struct
+		// doc comments.
+		Help string // help text
+
+		// StructTypeName is the name of the struct type that is the source of
+		// thos generated Command.
+		StructTypeName string // type name of source struct.
+
+		// StructPackageName is the base name of the package where source struct resides.
+		StructPackageName string
+
+		// Options to generate.
+		Options []Option
 	}
 
+	// Option defines a cmdline.Option to generate in a command. It is generated
+	// from a source struct field.
 	Option struct {
 		LongName  string   // option long name
 		ShortName string   // option short name
@@ -208,25 +231,25 @@ func (self GenerateConfig) Generate() (err error) {
 		}
 
 		var c = Command{
-			Name:       s.Name,
-			Help:       strings.Join(tag.Values[HelpTag], "\n"),
-			StructType: s.Name,
+			Name:           s.Name,
+			Help:           strings.Join(tag.Values[HelpKey], "\n"),
+			StructTypeName: s.Name,
 		}
 
-		if tag.Exists(IgnoreTag) {
+		if tag.Exists(IgnoreKey) {
 			continue
 		}
 
 		var name = s.Name
-		if tag.Exists(NameTag) {
-			if name = tag.First(NameTag); name == "" {
+		if tag.Exists(NameKey) {
+			if name = tag.First(NameKey); name == "" {
 				err = errors.New("invalid name tag, no value")
 			}
 		}
 
 		var (
-			optional = tag.Exists(OptionalTag)
-			required = tag.Exists(RequiredTag)
+			optional = tag.Exists(OptionalKey)
+			required = tag.Exists(RequiredKey)
 		)
 		if optional && required {
 			err = errors.New("optional and required tag keys are mutually exclusive")
@@ -299,15 +322,15 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	}
 
 	var name = f.Name
-	if tag.Exists(NameTag) {
-		if name = tag.First(NameTag); name == "" {
+	if tag.Exists(NameKey) {
+		if name = tag.First(NameKey); name == "" {
 			return errors.New("invalid name tag, no value")
 		}
 	}
 
 	var (
-		optional = tag.Exists(OptionalTag)
-		required = tag.Exists(RequiredTag)
+		optional = tag.Exists(OptionalKey)
+		required = tag.Exists(RequiredKey)
 	)
 	if optional && required {
 		err = errors.New("optional and required tag keys are mutually exclusive")
@@ -326,7 +349,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 		opt = Option{
 			LongName:  name,
 			ShortName: "",
-			Help:      self.makeHelp(tag.Values[HelpTag], f.Doc),
+			Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
 		}
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
@@ -336,7 +359,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 			opt = Option{
 				LongName:  name,
 				ShortName: "",
-				Help:      self.makeHelp(tag.Values[HelpTag], f.Doc),
+				Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
 				Kind:      cmdline.OptionOptional,
 			}
 		}
@@ -344,7 +367,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 			opt = Option{
 				LongName:  name,
 				ShortName: "",
-				Help:      self.makeHelp(tag.Values[HelpTag], f.Doc),
+				Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
 				Kind:      cmdline.OptionRequired,
 			}
 		}
@@ -382,7 +405,7 @@ func (self *GenerateConfig) generateOutput() (err error) {
 	if source, err = format.Source(bb.Bytes()); err != nil {
 		return
 	}
-	
+
 	fmt.Print(string(source))
 	return nil
 

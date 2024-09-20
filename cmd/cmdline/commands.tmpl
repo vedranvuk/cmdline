@@ -20,7 +20,7 @@ var (
 				LongName: "{{.LongName}}",
 				ShortName: "{{.ShortName}}",
 				Help: "{{.Help}}",
-				MappedValue: {{$command.Name}}Var.{{.LongName}},
+				MappedValue: &{{$command.Name}}Var.{{.LongName}},
 			},{{end}}
 		},
 	}{{end}}
