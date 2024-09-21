@@ -58,7 +58,7 @@ type Config struct {
 	// LongPrefix is the long Option prefix to use. It is optional and is
 	// defaulted to DefaultLongPrefix by Parse() if left empty.
 	LongPrefix string
-	
+
 	// ShortPrefix is the short Option prefix to use. It is optional and is
 	// defaulted to DefaultShortPrefix by Parse() if left empty.
 	ShortPrefix string
@@ -83,7 +83,6 @@ type Config struct {
 	// the execution chain. If false Parse executes only the Handler of the
 	// last Command in the execution chain.
 	NoExecLastHandlerOnly bool
-
 
 	// context is the context given to Config.Parse and is set at that time.
 	// If nil context was given, Config.Parse sets it to context.Background().
@@ -205,10 +204,11 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 		return
 	}
 	w = &wrapper{
-		self,
 		self.context,
+		self,
+		nil,
+		nil,
 		self.Globals,
-		nil, nil,
 	}
 	if self.GlobalsHandler != nil {
 		if err = self.GlobalsHandler(w); err != nil {
@@ -230,11 +230,11 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 	for index, current := range self.chain {
 		if self.NoExecLastHandlerOnly || index == last {
 			w = &wrapper{
-				self,
 				self.context,
-				current.Options,
+				self,
 				current,
 				parent,
+				current.Options,
 			}
 			if err = current.Handler(w); err != nil {
 				return
@@ -252,21 +252,30 @@ func (self *Config) Reset() {
 	// TODO: Implement Config.Reset.
 }
 
-// contextWrapper wraps the standard Context and Options to imlement
-// cmdline.Context.
+// wrapper implements [Context].
+//
 type wrapper struct {
-	config *Config
 	context.Context
-	Options
-	Command *Command
-	Parent  *Command
+	config  *Config
+	command *Command
+	parent  *Command
+	options Options
 }
 
-// GetConfig implements Context.GetConfig.
-func (self *wrapper) GetConfig() *Config { return self.config }
+// Parsed implements [Context.Parsed].
+func (self *wrapper) Parsed(longName string) bool { return self.options.Parsed(longName) }
 
-// GetCommand implements Context.GetCommand.
-func (self *wrapper) GetCommand() *Command { return self.Command }
+// Config implements [Context.Config].
+func (self *wrapper) Config() *Config { return self.config }
 
-// GetParentCommand implements Context.GetParentCommand.
-func (self *wrapper) GetParentCommand() *Command { return self.Parent }
+// Command implements [Context.Command].
+func (self *wrapper) Command() *Command { return self.command }
+
+// ParentCommand implements [Context.ParentCommand].
+func (self *wrapper) ParentCommand() *Command { return self.parent }
+
+// Options implements [Context.Options].
+func (self *wrapper) Options() Options { return self.options }
+
+// Values implements [Context.Values].
+func (self *wrapper) Values(longName string) Values { return self.Values(longName) }

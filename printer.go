@@ -47,37 +47,37 @@ func PrintCommand(w io.Writer, config *Config, command *Command, indent int) {
 func PrintOptions(w io.Writer, config *Config, options Options, indent int) {
 	var wr = newTabWriter(w)
 	for _, option := range options {
-		if _, ok := option.(*Indexed); !ok {
+		if option.Kind != Indexed {
 			continue
 		}
 		PrintOption(wr, config, option, indent)
 	}
 	for _, option := range options {
-		if _, ok := option.(*Boolean); !ok {
+		if option.Kind != Boolean {
 			continue
 		}
 		PrintOption(wr, config, option, indent)
 	}
 	for _, option := range options {
-		if _, ok := option.(*Optional); !ok {
+		if option.Kind != Optional {
 			continue
 		}
 		PrintOption(wr, config, option, indent)
 	}
 	for _, option := range options {
-		if _, ok := option.(*Required); !ok {
+		if option.Kind != Required {
 			continue
 		}
 		PrintOption(wr, config, option, indent)
 	}
 	for _, option := range options {
-		if _, ok := option.(*Repeated); !ok {
+		if option.Kind != Repeated {
 			continue
 		}
 		PrintOption(wr, config, option, indent)
 	}
 	for _, option := range options {
-		if _, ok := option.(*Variadic); !ok {
+		if option.Kind != Variadic {
 			continue
 		}
 		PrintOption(wr, config, option, indent)
@@ -86,21 +86,21 @@ func PrintOptions(w io.Writer, config *Config, options Options, indent int) {
 }
 
 // PrintOption prints option to w idented with ident tabs using config.
-func PrintOption(w io.Writer, config *Config, option Option, indent int) {
+func PrintOption(w io.Writer, config *Config, option *Option, indent int) {
 	io.WriteString(w, getIndent(indent))
-	switch o := option.(type) {
-	case *Boolean:
-		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, o.LongName, o.ShortName, false), o.Help))
-	case *Optional:
-		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, o.LongName, o.ShortName, true), o.Help))
-	case *Required:
-		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, o.LongName, o.ShortName, true), o.Help))
-	case *Repeated:
-		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, o.LongName, o.ShortName, true), o.Help))
-	case *Indexed:
-		io.WriteString(w, fmt.Sprintf("\t<%s>\t%s\n", o.Name, o.Help))
-	case *Variadic:
-		io.WriteString(w, fmt.Sprintf("... \t%s\t%s\n", o.Name, o.Help))
+	switch option.Kind {
+	case Boolean:
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, option.LongName, option.ShortName, false), option.Help))
+	case Optional:
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, option.LongName, option.ShortName, true), option.Help))
+	case Required:
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, option.LongName, option.ShortName, true), option.Help))
+	case Repeated:
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, option.LongName, option.ShortName, true), option.Help))
+	case Indexed:
+		io.WriteString(w, fmt.Sprintf("\t<%s>\t%s\n", option.LongName, option.Help))
+	case Variadic:
+		io.WriteString(w, fmt.Sprintf("... \t%s\t%s\n", option.LongName, option.Help))
 	}
 }
 

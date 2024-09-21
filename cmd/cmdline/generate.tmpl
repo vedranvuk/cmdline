@@ -16,12 +16,13 @@ var ({{range $command := .Commands}}
 	{{$command.Name}}Cmd = &cmdline.Command{
 		Name: "{{.Name}}",
 		Help: "{{.Help}}",
-		Options: []cmdline.Option{ {{range $command.Options}}
-			&{{.Signature}}{
+		Options: cmdline.Options{ {{range $command.Options}}
+			&cmdline.Option{
 				LongName: "{{.LongName}}",
 				ShortName: "{{.ShortName}}",
 				Help: "{{.Help}}",
-				MappedValue: &{{$command.Name}}Var.{{.FieldPath}},
+				Var: &{{$command.Name}}Var.{{.FieldPath}},
+				Kind: cmdline.{{.Kind.String}},
 			},{{end}}
 		},
 		Handler: handle{{.SourceStructType}},

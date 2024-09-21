@@ -12,319 +12,152 @@ import (
 	"time"
 )
 
-// OptionKind specifies the kind of a Command Option.
-type OptionKind int
+// Kind specifies the kind of an Option.
+//
+// It defines the Option behaviour and how it parses its arguments.
+type Kind int
 
 const (
-	// OptionInvalid is an invalid or unknown type of option.
-	OptionInvalid OptionKind = iota
-	// OptionBoolean is a Boolean Option.
-	OptionBoolean
-	// OptionOptional is an Optional Option.
-	OptionOptional
-	// OptionRequired is a Required Option.
-	OptionRequired
-	// OptionIndexed is an Indexed Option.
-	OptionIndexed
-	// OptionRepeated is a Repeated Option.
-	OptionRepeated
-	// OptionVariadic is a Variadic Option.
-	OptionVariadic
+	// Invalid is an invalid, undefined or unknown type of option.
+	Invalid Kind = iota
+
+	// Boolean is a boolean Option.
+	//
+	// A Boolean option is an option that takes no arguments. It is marked as
+	// parsed if it was specified in command arguments.
+	Boolean
+
+	// Optional is an optional Option.
+	//
+	// It will not return an error during parse if it was not specified in
+	// command arguments.
+	//
+	// It takes a single value.
+	Optional
+
+	// Required is a required Option.
+	//
+	// A required option is an option which raises an error if not parsed from
+	// arguments. It takes a value in the same way as [Optional].
+	Required
+
+	// Repeated is a repeated Option.
+	//
+	// Repeated option is an optional option that can be specified one or more
+	// times. Each value give to an invocation of this option is appended to the
+	// Option's RawValues slice.
+	Repeated
+
+	// Indexed is an indexed Option.
+	//
+	// An indexed option is an option that is not qualified by name when passed
+	// to a Command but is instead matched by index of being defined in
+	// Command's Options to index of an argument to the Command.
+	//
+	// Indexed options are parsed after named Options and their values must be
+	// given after any and all named options that are to be set. Index of the
+	// argument is counted from 0 after all named arguments were given.
+	//
+	// In this example the "indexedOptionValue" is the value for the first
+	// Indexed Option defined in Options:
+	//
+	// myprog.exe somecommand --namedOption=namedOptionValue indexedOptionValue
+	//
+	// Indexed options may be declared at any point in between other types of
+	// options in Options but the order in which Indexed options are declared
+	// is important and defines the index of the Indexed command.
+	//
+	// An Indexed option is required and will raise an error if not parsed.
+	Indexed
+
+	// Variadic is a variadic Option.
+	//
+	// A Variadic Option is an option that takes any and all unparsed arguments
+	// as an single argument to this Option.
+	//
+	// For that reason a Variadic Option's Parent Options may have no
+	// Sub-Options.
+	//
+	// Variadic option is parsed after all other options and consumes all
+	// unused arguments as arguments to self.
+	Variadic
 )
 
-// Option abstracts an option in a slice of Options.
-type Option interface {
-	// GetLongName returns the Option LongName.
-	// LongName represents the long Option name format.
-	// Option GetLongName must be unique in its parent Options.
-	// Option with both LongName and ShortName maps its LongName to GetLongName.
-	// Option with Name maps Name to both GetLongName and GetShortName.
-	GetLongName() string
-	// GetShortName returns the Option ShortName.
-	// ShortName represents the short Option name format.
-	// Option GetLongName must be unique in its parent Options.
-	// Option with both LongName and ShortName maps its LongName to GetLongName.
-	// Option with Name maps Name to both GetLongName and GetShortName.
-	GetShortName() string
-	// GetIsParsed returns Option.State.IsParsed. It indicates if the Option was
-	// parsed from arguments. For Repeated Option it indicates that the Option
-	// was parsed at least once.
-	GetIsParsed() bool
-	// GetRawValues returns the raw option value as a string. Returns an empty
-	// slice if Option was not parsed, was not given a argument as a value or
-	// the Option takes no values (i.e. Boolean Option).
-	GetRawValues() RawValues
-	// GetMappedValue returns Option.MappedValue, the variable mapped to this
-	// Option. May be nil if unmapped.
-	GetMappedValue() any
+// String implements [fmt.Stringer] on Kind.
+func (self Kind) String() string {
+	switch self {
+	case Boolean:
+		return "Boolean"
+	case Optional:
+		return "Optional"
+	case Required:
+		return "Required"
+	case Repeated:
+		return "Repeated"
+	case Indexed:
+		return "Indexed"
+	case Variadic:
+		return "Variadic"
+	default:
+		return "[INVALID]"
+	}
 }
 
-// State represents the Option parse state and is embedded at the top level
-// in all supported Option types.
-type State struct {
+// Option defines an option.
+type Option struct {
+	// LongName is the long, more descriptive option name.
+	//
+	// It must contain no spaces and must be unique in Options as it is the
+	// primary key for Option addressing.
+	//
+	// An argument with a long prefix is matched against this property.
+	LongName string
 
-	// IsParsed will be set to true if the Option gets parsed from arguments.
+	// ShortName is the option short name.
+	//
+	// ShortName is the short option name consisting of a single alphanumeric.
+	// It is optional and if not empty must be unique in all Options ShortName
+	// properties.
+	ShortName string
+
+	// Help is the option help text.
+	// It should be a short, single line description of the option.
+	Help string
+
+	// IsParsed indicates if the Option was parsed from arguments. For Repeated
+	// Option it indicates that the Option was parsed at least once.
 	IsParsed bool
 
-	// RawValues will contain any arguments given as a value to the Option.
-	RawValues
+	// Kind is the kind of option which determines how the Option parses
+	// its arguments. See [Kind] for details.
+	Kind
+
+	// Values contains any string values passed to the option as arguments.
+	// How Values is parsed depends on [Option.Kind].
+	Values
+
+	// Var is an optional variable that will be set from Option argument(s).
+	//
+	// Boolean Option takes a *bool which will be set true if Option is parsed.
+	Var any
 }
 
-// RawValues is a helper alias for a slice of strings representing arguments
+// Values is a helper alias for a slice of strings representing arguments
 // passed to an Option. It implements several utilities for retrieving values.
-type RawValues []string
+type Values []string
 
 // Count returns number of items in self.
-func (self RawValues) Count() int { return len(self) }
+func (self Values) Count() int { return len(self) }
 
 // IsEmpty returns true if RawValues are empty.
-func (self RawValues) IsEmpty() bool { return len(self) == 0 }
+func (self Values) IsEmpty() bool { return len(self) == 0 }
 
 // First returns the first value in self or an empty string if empty.
-func (self RawValues) First() string {
+func (self Values) First() string {
 	if len(self) > 0 {
 		return self[0]
 	}
 	return ""
-}
-
-// Boolean defines a boolean option.
-//
-// A Boolean option is an option that takes no argument and is simply marked as
-// parsed if found in arguments.
-type Boolean struct {
-	// LongName is the long, more descriptive option name. 
-	//
-	// It must contain no spaces and must be unique in Options as it is the 
-	// primary key for Option addressing. 
-	//
-	// An argument with a long prefix is matched against this property.
-	LongName string
-
-	// ShortName is the short option name consisting of a single alphanumeric.
-	//
-	// An argument with a short prefix is matched against this property.
-	ShortName string
-
-	// Help is the option help text.
-	Help string
-
-	// MappedValue is an optional variable that will be set from an argument 
-	// given to an Option at parse time.
-	//
-	// Boolean Option takes a *bool which will be set true if Option is parsed. 
-	MappedValue any
-
-	// State embeds the base State properties.
-	State
-}
-
-// Flag defines an option that is not required. It takes no arguments.
-// Option is defined by long and short names and shows help when printed.
-// Returns self.
-func (self Options) Boolean(longName, shortName, help string) Options {
-	return self.Register(&Boolean{
-		LongName:  longName,
-		ShortName: shortName,
-		Help:      help,
-	})
-}
-
-// Optional defines an optional option.
-//
-// An optional option is an option which is not required and raises no error if
-// not parsed from arguments. Optional option takes a single argument as value
-// which can be retrieved from Command context using Value("option_name")
-type Optional struct {
-	// LongName is the long, more descriptive option name. 
-	//
-	// It must contain no spaces and must be unique in Options as it is the 
-	// primary key for Option addressing. 
-	//
-	// An argument with a long prefix is matched against this property.
-	LongName string
-
-	// ShortName is the short option name consisting of a single alphanumeric.
-	//
-	// An argument with a short prefix is matched against this property.
-	ShortName string
-
-	// Help is the option help text.
-	Help string
-
-	// MappedValue is an optional variable that will be set from an argument 
-	// given to an Option at parse time.
-	//
-	// Boolean Option takes a *bool which will be set true if Option is parsed. 
-	MappedValue any
-
-	// State embeds the base State properties.
-	State
-}
-
-// Optional defines an optional option.
-//
-// An optional option is an option which is not required and raises no error if
-// not parsed from arguments. Optional option takes a single argument as value
-// which can be retrieved from Command context using Value("option_name")
-func (self Options) Optional(longName, shortName, help string) Options {
-	return self.Register(&Optional{
-		LongName:  longName,
-		ShortName: shortName,
-		Help:      help,
-	})
-}
-
-// Required defines a required option.
-//
-// A required option is an option which raises an error if not parsed from
-// arguments. Required option takes a single argument as value which can be
-// retrieved from Command context using Value("option_name")
-type Required struct {
-	// LongName is the long, more descriptive option name. It must contain no
-	// spaces and must be unique in an Options. It is used as the key to
-	// retrieve this option state from its Command context.
-	// An argument with a long prefix is matched against this property.
-	LongName string
-	// ShortName is the short option name consisting of a single alphanumeric.
-	// An argument with a short prefix is matched against this property.
-	ShortName string
-	// Help is the short help text.
-	Help string
-	// MappedValue is an optional pointer to one of supported variable types
-	// that the option will get parsed into. For details see rawToMapped.
-	MappedValue any
-
-	// State embeds the base State properties.
-	State
-}
-
-// Required defines an option that is required. It takes one argument that is
-// described as type of value for the option when printing.
-// Option is defined by long and short names and shows help when printed.
-// Returns self.
-func (self Options) Required(longName, shortName, help string) Options {
-	return self.Register(&Required{
-		LongName:  longName,
-		ShortName: shortName,
-		Help:      help,
-	})
-}
-
-// Indexed defines an indexed option.
-//
-// An indexed option is an option that is not qualified by name when passed to
-// a Command but is instead matched by index of being defined in Command's
-// Options and given as an argument to the Command.
-//
-// As Indexed Option is given unqualified in the arguments and the argument
-// given for the option is the Option Value.
-//
-// In this example the "indexedOptionValue" is the value for the first Indexed
-// Option defined in Options:
-//
-// myprog.exe somecommand --namedOption=namedOptionValue indexedOptionValue
-//
-// Indexed options may be declared at any point in between other types of
-// options in Options but the order in which Indexed options are declared
-// is important and defines the index of the Indexed command.
-//
-// An Indexed option is a required option and will raise an error if not parsed.
-//
-// Indexed options are parsed after named Options and must be specified after
-// all named options to set for a Command in the arguments.
-type Indexed struct {
-	// LongName is the long, more descriptive option name. It must contain no
-	// spaces and must be unique in an Options. It is used as the key to
-	// retrieve this option state from its Command context.
-	Name string
-	// Help is the short help text.
-	Help string
-	// MappedValue is an optional pointer to one of supported variable types
-	// that the option will get parsed into. For details see rawToMapped.
-	MappedValue any
-
-	// State embeds the base State properties.
-	State
-}
-
-// Indexed defines an option that is passed by index, i.e. the value for the
-// option is not prefixed with a short or long option name. It takes one
-// argument that is described as type of value for the option when printing.
-// Option is defined by long and short names and shows help when printed.
-// Returns self.
-func (self Options) Indexed(name, help string) Options {
-	return self.Register(&Indexed{
-		Name: name,
-		Help: help,
-	})
-}
-
-// Repeated option is an optional option that can be specified multiple times.
-type Repeated struct {
-	// LongName is the long, more descriptive option name. It must contain no
-	// spaces and must be unique in an Options. It is used as the key to
-	// retrieve this option state from its Command context.
-	// An argument with a long prefix is matched against this property.
-	LongName string
-	// ShortName is the short option name consisting of a single alphanumeric.
-	// An argument with a short prefix is matched against this property.
-	ShortName string
-	// Help is the short help text.
-	Help string
-	// MappedValue is an optional pointer to one of supported variable types
-	// that the option will get parsed into. For details see rawToMapped.
-	MappedValue any
-
-	// State embeds the base State properties.
-	State
-}
-
-// Repeated defines a repeatable option.
-func (self Options) Repeated(longName, shortName, help string) Options {
-	return self.Register(&Repeated{
-		LongName:  longName,
-		ShortName: shortName,
-		Help:      help,
-	})
-}
-
-// Variadic defines a variadic option.
-//
-// A Variadic Option is an option that takes any and all unparsed arguments as
-// an single argument to this Option.
-//
-// For that reason a Variadic Option's Parent Options may have no Sub-Options.
-//
-// The arguments consumed by this Option are retrievable via Command Context by
-// Name of this Option and are returned as a space delimited string.
-type Variadic struct {
-	// LongName is the long, more descriptive option name. It must contain no
-	// spaces and must be unique in an Options. It is used as the key to
-	// retrieve this option state from its Command context.
-	Name string
-	// Help is the short help text.
-	Help string
-	// MappedValue is an optional pointer to one of supported variable types
-	// that the option will get parsed into. For details see rawToMapped.
-	MappedValue any
-
-	// State embeds the base State properties.
-	State
-}
-
-// Variadic defines an option that treats any and all arguments left to parse as
-// arguments to self. Only one Variadic option may be defined on a command, it
-// must be declared last i.e. no options may be defined after it and the command
-// may not have command subsets.
-//
-// Any unparsed arguments at the time of invocation of this option's command
-// handler are retrievable via Context.Value as a space delimited string array.
-func (self Options) Variadic(name, help string) Options {
-	return self.Register(&Variadic{
-		Name: name,
-		Help: help,
-	})
 }
 
 // Options contains and manages a set of Options.
@@ -335,15 +168,105 @@ func (self Options) Variadic(name, help string) Options {
 // Options are never sorted and the order in which Options are declared is
 // importan; Print lists them in the oder they were declared and Indexed
 // options are matched to indexes of their arguments.
-type Options []Option
+type Options []*Option
+
+// Register registers an Option in these Options where option must be one of
+// the Option definition structs in this file. It returns self.
+// Option parameter must be one of:
+//
+//	Boolean, Optional, Required, Indexed, Variadic
+func (self *Options) Register(option *Option) *Options {
+	// TODO: Check short key dulicates.
+	*self = append(*self, option)
+	return self
+}
+
+// Flag defines an option that is not required. It takes no arguments.
+// Option is defined by long and short names and shows help when printed.
+// Returns self.
+func (self *Options) Boolean(longName, shortName, help string) *Options {
+	return self.Register(&Option{
+		LongName:  longName,
+		ShortName: shortName,
+		Help:      help,
+		Kind:      Boolean,
+	})
+}
+
+// Optional defines an optional option.
+//
+// An optional option is an option which is not required and raises no error if
+// not parsed from arguments. Optional option takes a single argument as value
+// which can be retrieved from Command context using Value("option_name")
+func (self *Options) Optional(longName, shortName, help string) *Options {
+	return self.Register(&Option{
+		LongName:  longName,
+		ShortName: shortName,
+		Help:      help,
+		Kind:      Optional,
+	})
+}
+
+// Required defines an option that is required. It takes one argument that is
+// described as type of value for the option when printing.
+// Option is defined by long and short names and shows help when printed.
+// Returns self.
+func (self *Options) Required(longName, shortName, help string) *Options {
+	return self.Register(&Option{
+		LongName:  longName,
+		ShortName: shortName,
+		Help:      help,
+		Kind:      Required,
+	})
+}
+
+// Indexed defines an option that is passed by index, i.e. the value for the
+// option is not prefixed with a short or long option name. It takes one
+// argument that is described as type of value for the option when printing.
+// Option is defined by long and short names and shows help when printed.
+// Returns self.
+func (self *Options) Indexed(name, help string) *Options {
+	return self.Register(&Option{
+		LongName:  name,
+		ShortName: "",
+		Help:      help,
+		Kind:      Indexed,
+	})
+}
+
+// Repeated defines a repeatable option.
+func (self *Options) Repeated(longName, shortName, help string) *Options {
+	return self.Register(&Option{
+		LongName:  longName,
+		ShortName: shortName,
+		Help:      help,
+		Kind:      Repeated,
+	})
+}
+
+// Variadic defines an option that treats any and all arguments left to parse as
+// arguments to self. Only one Variadic option may be defined on a command, it
+// must be declared last i.e. no options may be defined after it and the command
+// may not have command subsets.
+//
+// Any unparsed arguments at the time of invocation of this option's command
+// handler are retrievable via Context.Value as a space delimited string array.
+func (self *Options) Variadic(name, help string) *Options {
+	return self.Register(&Option{
+		LongName:  name,
+		ShortName: "",
+		Help:      help,
+		Kind:      Variadic,
+	})
+}
 
 // Returns number of registered options in self.
 func (self Options) Count() int { return len(self) }
 
 // FindLong returns an Option with given longName or nil if not found.
-func (self Options) FindLong(longName string) Option {
+func (self Options) FindLong(longName string) *Option {
 	for i := 0; i < len(self); i++ {
-		if self[i].GetLongName() == longName {
+		if self[i].LongName == longName {
 			return self[i]
 		}
 	}
@@ -351,9 +274,9 @@ func (self Options) FindLong(longName string) Option {
 }
 
 // Get returns an Option with given shortName or nil if not found.
-func (self Options) FindShort(shortName string) Option {
+func (self Options) FindShort(shortName string) *Option {
 	for i := 0; i < len(self); i++ {
-		if self[i].GetShortName() == shortName {
+		if self[i].ShortName == shortName {
 			return self[i]
 		}
 	}
@@ -361,60 +284,23 @@ func (self Options) FindShort(shortName string) Option {
 }
 
 // IsParsed implements Context.IsParsed.
-func (self Options) IsParsed(longName string) bool {
+func (self Options) Parsed(longName string) bool {
 	for _, v := range self {
-		if v.GetLongName() == longName {
-			return v.GetIsParsed()
+		if v.LongName == longName {
+			return v.IsParsed
 		}
 	}
 	return false
 }
 
-// SetIfParsed sets the value to parsed value if option under name was parsed.
-func (self Options) SetIfParsed(longName string, value *string) bool {
-
-	var o Option
-	for _, o = range self {
-		if o.GetLongName() == longName {
-			break
-		}
-	}
-
-	if o == nil {
-		return false
-	}
-
-	if rv := o.GetRawValues(); len(rv) > 0 {
-		*value = o.GetRawValues().First()
-	} else {
-		return false
-	}
-
-	return true
-}
-
 // Parsed implements Context.RawValues.
-func (self Options) RawValues(longName string) RawValues {
+func (self Options) Values(longName string) Values {
 	for _, v := range self {
-		if v.GetLongName() == longName {
-			return v.GetRawValues()
+		if v.LongName == longName {
+			return v.Values
 		}
 	}
 	return nil
-}
-
-// Options implements Context.Options.
-func (self Options) GetOptions() Options { return self }
-
-// Register registers an Option in these Options where option must be one of
-// the Option definition structs in this file. It returns self.
-// Option parameter must be one of:
-//
-//	Boolean, Optional, Required, Indexed, Variadic
-func (self Options) Register(option Option) Options {
-	// TODO: Check short key dulicates.
-	self = append(self, option)
-	return self
 }
 
 // ExclusivityGroup defines a group of option names which are mutually
@@ -425,50 +311,13 @@ type ExclusivityGroup []string
 // one ExclusivityGroup.
 type ExclusivityGroups []ExclusivityGroup
 
-// Following funcs implement the Option interface on all five Option types.
-
-func (self *Boolean) GetLongName() string  { return self.LongName }
-func (self *Optional) GetLongName() string { return self.LongName }
-func (self *Required) GetLongName() string { return self.LongName }
-func (self *Repeated) GetLongName() string { return self.LongName }
-func (self *Indexed) GetLongName() string  { return self.Name }
-func (self *Variadic) GetLongName() string { return self.Name }
-
-func (self *Boolean) GetShortName() string  { return self.ShortName }
-func (self *Optional) GetShortName() string { return self.ShortName }
-func (self *Required) GetShortName() string { return self.ShortName }
-func (self *Repeated) GetShortName() string { return self.ShortName }
-func (self *Indexed) GetShortName() string  { return self.Name }
-func (self *Variadic) GetShortName() string { return self.Name }
-
-func (self *Boolean) GetIsParsed() bool  { return self.State.IsParsed }
-func (self *Optional) GetIsParsed() bool { return self.State.IsParsed }
-func (self *Required) GetIsParsed() bool { return self.State.IsParsed }
-func (self *Repeated) GetIsParsed() bool { return self.State.IsParsed }
-func (self *Indexed) GetIsParsed() bool  { return self.State.IsParsed }
-func (self *Variadic) GetIsParsed() bool { return self.State.IsParsed }
-
-func (self *Boolean) GetRawValues() RawValues  { return self.State.RawValues }
-func (self *Optional) GetRawValues() RawValues { return self.State.RawValues }
-func (self *Required) GetRawValues() RawValues { return self.State.RawValues }
-func (self *Repeated) GetRawValues() RawValues { return self.State.RawValues }
-func (self *Indexed) GetRawValues() RawValues  { return self.State.RawValues }
-func (self *Variadic) GetRawValues() RawValues { return self.State.RawValues }
-
-func (self *Boolean) GetMappedValue() any  { return self.MappedValue }
-func (self *Optional) GetMappedValue() any { return self.MappedValue }
-func (self *Required) GetMappedValue() any { return self.MappedValue }
-func (self *Repeated) GetMappedValue() any { return self.MappedValue }
-func (self *Indexed) GetMappedValue() any  { return self.MappedValue }
-func (self *Variadic) GetMappedValue() any { return self.MappedValue }
-
 // Value defines a type that is capable of parsing a string into a value it
 // represents.
 type Value interface {
 	// String must return a string representation of the type.
 	String() string
 	// Set must parse a string into self or return an error if it failed.
-	Set(RawValues) error
+	Set(Values) error
 }
 
 // parse parses self from args or returns an error.
@@ -479,7 +328,7 @@ func (self Options) parse(config *Config) (err error) {
 	}
 
 	var (
-		opt        Option
+		opt        *Option
 		key, val   string
 		assignment bool
 	)
@@ -508,10 +357,10 @@ func (self Options) parse(config *Config) (err error) {
 		switch kind := config.Arguments.Kind(config); kind {
 		case TextArgument:
 			if config.NoAssignment && opt != nil {
-				switch opt.(type) {
-				case *Optional, *Required, *Repeated:
+				switch opt.Kind {
+				case Optional, Required, Repeated:
 				default:
-					return fmt.Errorf("option '%s' requires a value", opt.GetLongName())
+					return fmt.Errorf("option '%s' requires a value", opt.LongName)
 
 				}
 			} else {
@@ -522,53 +371,53 @@ func (self Options) parse(config *Config) (err error) {
 		case LongArgument:
 			if !config.NoIndexedFirst {
 				if fui := self.getFirstUnparsedIndexed(); fui != nil {
-					return fmt.Errorf("indexed argument '%s' not parsed", fui.GetLongName())
+					return fmt.Errorf("indexed argument '%s' not parsed", fui.LongName)
 				}
 			}
 
 			if config.NoAssignment && opt != nil {
-				return fmt.Errorf("option '%s' requires a value", opt.GetLongName())
+				return fmt.Errorf("option '%s' requires a value", opt.LongName)
 			}
 
 			if opt = self.FindLong(key); opt == nil {
 				return fmt.Errorf("unknown option '%s'", key)
 			}
 
-			switch opt.(type) {
-			case *Boolean:
-			case *Optional, *Required, *Repeated:
+			switch opt.Kind {
+			case Boolean:
+			case Optional, Required, Repeated:
 				if config.NoAssignment {
 					config.Arguments.Next()
 					continue
 				}
 			default:
-				return fmt.Errorf("option '%s' exists, but is not named", opt.GetLongName())
+				return fmt.Errorf("option '%s' exists, but is not named", opt.LongName)
 
 			}
 		case ShortArgument:
 			if !config.NoIndexedFirst {
 				if fui := self.getFirstUnparsedIndexed(); fui != nil {
-					return fmt.Errorf("indexed argument '%s' not parsed", fui.GetLongName())
+					return fmt.Errorf("indexed argument '%s' not parsed", fui.LongName)
 				}
 			}
 
 			if config.NoAssignment && opt != nil {
-				return fmt.Errorf("option '%s' requires a value", opt.GetLongName())
+				return fmt.Errorf("option '%s' requires a value", opt.LongName)
 			}
 
 			if opt = self.FindShort(key); opt == nil {
 				return fmt.Errorf("unknown option '%s'", key)
 			}
 
-			switch opt.(type) {
-			case *Boolean:
-			case *Optional, *Required, *Repeated:
+			switch opt.Kind {
+			case Boolean:
+			case Optional, Required, Repeated:
 				if config.NoAssignment {
 					config.Arguments.Next()
 					continue
 				}
 			default:
-				return fmt.Errorf("option '%s' exists, but is not named", opt.GetLongName())
+				return fmt.Errorf("option '%s' exists, but is not named", opt.LongName)
 
 			}
 		}
@@ -576,7 +425,7 @@ func (self Options) parse(config *Config) (err error) {
 		// No options matched so far, see if there's a Variadic.
 		if opt == nil {
 			for _, v := range self {
-				if _, ok := v.(*Variadic); ok {
+				if v.Kind == Variadic {
 					opt = v
 					break
 				}
@@ -587,72 +436,72 @@ func (self Options) parse(config *Config) (err error) {
 		}
 
 		// Fail if non *Repeatable option and parsed multiple times.
-		if _, ok := opt.(*Repeated); !ok {
-			if opt.GetIsParsed() {
-				return fmt.Errorf("option %s specified multiple times", opt.GetLongName())
+		if opt.Kind != Repeated {
+			if opt.IsParsed {
+				return fmt.Errorf("option %s specified multiple times", opt.LongName)
 			}
 		}
 
 		// Sets the Option as parsed and sets raw value(s).
-		switch o := opt.(type) {
-		case *Boolean:
+		switch opt.Kind {
+		case Boolean:
 			if config.NoAssignment {
-				o.IsParsed = true
+				opt.IsParsed = true
 			} else {
 				if assignment {
-					return fmt.Errorf("option '%s' cannot be assigned a value", o.GetLongName())
+					return fmt.Errorf("option '%s' cannot be assigned a value", opt.LongName)
 				}
-				o.IsParsed = true
+				opt.IsParsed = true
 			}
-		case *Optional:
+		case Optional:
 			if config.NoAssignment {
-				o.RawValues = append(o.RawValues, key)
-				o.IsParsed = true
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
 			} else {
 				if !assignment || val == "" {
-					return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+					return fmt.Errorf("option '%s' requires a value", opt.LongName)
 				}
-				o.RawValues = append(o.RawValues, val)
-				o.IsParsed = true
+				opt.Values = append(opt.Values, val)
+				opt.IsParsed = true
 			}
-		case *Required:
+		case Required:
 			if config.NoAssignment {
-				o.RawValues = append(o.RawValues, key)
-				o.IsParsed = true
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
 			} else {
 				if !assignment || val == "" {
-					return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+					return fmt.Errorf("option '%s' requires a value", opt.LongName)
 				}
-				o.RawValues = append(o.RawValues, val)
-				o.IsParsed = true
+				opt.Values = append(opt.Values, val)
+				opt.IsParsed = true
 			}
-		case *Repeated:
+		case Repeated:
 			if config.NoAssignment {
-				o.RawValues = append(o.RawValues, key)
-				o.IsParsed = true
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
 			} else {
 				if !assignment || val == "" {
-					return fmt.Errorf("option '%s' requires a value", o.GetLongName())
+					return fmt.Errorf("option '%s' requires a value", opt.LongName)
 				}
-				o.RawValues = append(o.RawValues, val)
-				o.IsParsed = true
+				opt.Values = append(opt.Values, val)
+				opt.IsParsed = true
 			}
-		case *Indexed:
+		case Indexed:
 			if config.NoAssignment {
-				o.RawValues = append(o.RawValues, key)
-				o.IsParsed = true
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
 			} else {
-				o.RawValues = append(o.RawValues, key)
-				o.IsParsed = true
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
 			}
-		case *Variadic:
-			o.RawValues = append(o.RawValues, config.Arguments...)
-			o.IsParsed = true
+		case Variadic:
+			opt.Values = append(opt.Values, config.Arguments...)
+			opt.IsParsed = true
 			config.Arguments.End()
 		}
 
-		if err = self.rawToMapped(opt); err != nil {
-			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.GetMappedValue(), opt.GetLongName(), err)
+		if err = self.setVar(opt); err != nil {
+			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.Var, opt.LongName, err)
 		}
 
 		opt = nil
@@ -661,12 +510,12 @@ func (self Options) parse(config *Config) (err error) {
 
 	if !config.NoFailOnUnparsedRequired {
 		for _, opt = range self {
-			if !opt.GetIsParsed() {
-				if _, ok := opt.(*Required); ok {
-					return fmt.Errorf("required option '%s' not parsed", opt.GetLongName())
+			if !opt.IsParsed {
+				if opt.Kind == Required {
+					return fmt.Errorf("required option '%s' not parsed", opt.LongName)
 				}
-				if _, ok := opt.(*Indexed); ok {
-					return fmt.Errorf("indexed option '%s' not parsed", opt.GetLongName())
+				if opt.Kind == Indexed {
+					return fmt.Errorf("indexed option '%s' not parsed", opt.LongName)
 				}
 			}
 		}
@@ -677,10 +526,10 @@ func (self Options) parse(config *Config) (err error) {
 
 // getFirstUnparsedIndexed returns the first Indexed Option that is not parsed.
 // Returns nil if none found.
-func (self Options) getFirstUnparsedIndexed() Option {
+func (self Options) getFirstUnparsedIndexed() *Option {
 	for _, option := range self {
-		if _, ok := option.(*Indexed); ok {
-			if !option.GetIsParsed() {
+		if option.Kind == Indexed {
+			if !option.IsParsed {
 				return option
 			}
 		}
@@ -688,7 +537,7 @@ func (self Options) getFirstUnparsedIndexed() Option {
 	return nil
 }
 
-// rawToMapped converts option.State.RawValue to option.MappedValue if option's
+// setVar converts option.State.RawValue to option.MappedValue if option's
 // raw value is not nil.
 //
 // Returns nil on success of no value mapped.. Returns a non nil error on
@@ -705,40 +554,31 @@ func (self Options) getFirstUnparsedIndexed() Option {
 //
 // If an unsupported type was set as option.MappedValue Parse will return a
 // conversion error.
-func (self Options) rawToMapped(option Option) (err error) {
+func (self Options) setVar(option *Option) (err error) {
 
-	var (
-		mapped = option.GetMappedValue()
-		raw    = option.GetRawValues()
-	)
-	if mapped == nil {
+	if option.Var == nil {
 		return nil
 	}
-	if _, ok := option.(*Boolean); !ok {
-		if len(raw) == 0 {
+
+	if option.Kind != Boolean {
+		if option.Values.Count() < 1 {
 			return nil
 		}
 	}
-	switch p := option.(type) {
-	case *Boolean:
-		return setMappedValue(p.MappedValue, raw)
-	case *Optional:
-		return setMappedValue(p.MappedValue, raw)
-	case *Required:
-		return setMappedValue(p.MappedValue, raw)
-	case *Indexed:
-		return setMappedValue(p.MappedValue, raw)
-	case *Repeated:
-		return setMappedValue(p.MappedValue, raw[len(raw)-1:])
-	case *Variadic:
-		return setMappedValue(p.MappedValue, raw)
+
+	switch option.Kind {
+	case Boolean, Optional, Required, Indexed, Variadic:
+		return convertToVar(option.Var, option.Values)
+	case Repeated:
+		return convertToVar(option.Var, option.Values[len(option.Values)-1:])
+	default:
+		return errors.New("invalid OptionKind")
 	}
-	return nil
 }
 
-// setMappedValue sets v which must be a pointer to a supported type from raw
+// convertToVar sets v which must be a pointer to a supported type from raw
 // or returns an error if conversion error occured.
-func setMappedValue(v any, raw RawValues) (err error) {
+func convertToVar(v any, raw Values) (err error) {
 	switch p := v.(type) {
 	case *bool:
 		*p = true

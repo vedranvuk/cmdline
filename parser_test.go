@@ -16,20 +16,20 @@ func TestContext(t *testing.T) {
 	)
 
 	a.Handler = func(c Context) error {
-		if c.GetParentCommand() != nil {
+		if c.ParentCommand() != nil {
 			t.Fatal("GetParentCommand failed")
 		}
-		if c.GetCommand() != a {
+		if c.Command() != a {
 			t.Fatal("GetCommand failed")
 		}
 		return nil
 	}
 
 	b.Handler = func(c Context) error {
-		if c.GetParentCommand() != a {
+		if c.ParentCommand() != a {
 			t.Fatal("GetParentCommand failed")
 		}
-		if c.GetParentCommand() != b {
+		if c.ParentCommand() != b {
 			t.Fatal("GetCommand failed")
 		}
 		return nil
@@ -133,33 +133,39 @@ func TestOptionsParsing(t *testing.T) {
 		Arguments:      []string{"-b", "--optional=\"opt\"", "-r=42", "--repeated=1", "-p=2", "idxd", "one", "two", "three"},
 		NoIndexedFirst: true,
 		Globals: Options{
-			&Boolean{
-				LongName:    "boolean",
-				ShortName:   "b",
-				MappedValue: &boolean,
+			&Option{
+				LongName:  "boolean",
+				ShortName: "b",
+				Var:       &boolean,
+				Kind:      Boolean,
 			},
-			&Optional{
-				LongName:    "optional",
-				ShortName:   "o",
-				MappedValue: &optional,
+			&Option{
+				LongName:  "optional",
+				ShortName: "o",
+				Var:       &optional,
+				Kind:      Optional,
 			},
-			&Required{
-				LongName:    "required",
-				ShortName:   "r",
-				MappedValue: &required,
+			&Option{
+				LongName:  "required",
+				ShortName: "r",
+				Var:       &required,
+				Kind:      Required,
 			},
-			&Repeated{
-				LongName:    "repeated",
-				ShortName:   "p",
-				MappedValue: &repeated,
+			&Option{
+				LongName:  "repeated",
+				ShortName: "p",
+				Var:       &repeated,
+				Kind:      Repeated,
 			},
-			&Indexed{
-				Name:        "indexed",
-				MappedValue: &indexed,
+			&Option{
+				LongName: "indexed",
+				Var:      &indexed,
+				Kind:     Indexed,
 			},
-			&Variadic{
-				Name:        "variadic",
-				MappedValue: &variadic,
+			&Option{
+				LongName: "variadic",
+				Var:      &variadic,
+				Kind:     Variadic,
 			},
 		},
 	}); err != nil {
@@ -201,33 +207,39 @@ func TestOptionsParsingNoAssign(t *testing.T) {
 		NoIndexedFirst: true,
 		NoAssignment:   true,
 		Globals: Options{
-			&Boolean{
-				LongName:    "boolean",
-				ShortName:   "b",
-				MappedValue: &boolean,
+			&Option{
+				LongName:  "boolean",
+				ShortName: "b",
+				Var:       &boolean,
+				Kind:      Boolean,
 			},
-			&Optional{
-				LongName:    "optional",
-				ShortName:   "o",
-				MappedValue: &optional,
+			&Option{
+				LongName:  "optional",
+				ShortName: "o",
+				Var:       &optional,
+				Kind:      Optional,
 			},
-			&Required{
-				LongName:    "required",
-				ShortName:   "r",
-				MappedValue: &required,
+			&Option{
+				LongName:  "required",
+				ShortName: "r",
+				Var:       &required,
+				Kind:      Required,
 			},
-			&Repeated{
-				LongName:    "repeated",
-				ShortName:   "p",
-				MappedValue: &repeated,
+			&Option{
+				LongName:  "repeated",
+				ShortName: "p",
+				Var:       &repeated,
+				Kind:      Repeated,
 			},
-			&Indexed{
-				Name:        "indexed",
-				MappedValue: &indexed,
+			&Option{
+				LongName: "indexed",
+				Var:      &indexed,
+				Kind:     Indexed,
 			},
-			&Variadic{
-				Name:        "variadic",
-				MappedValue: &variadic,
+			&Option{
+				LongName: "variadic",
+				Var:      &variadic,
+				Kind:     Variadic,
 			},
 		},
 	}); err != nil {
@@ -292,65 +304,80 @@ func TestMappedValues(t *testing.T) {
 			"--duration=60s",
 		},
 		Globals: Options{
-			&Optional{
-				LongName:    "bool",
-				MappedValue: &Bool,
+			&Option{
+				LongName: "bool",
+				Var:      &Bool,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "int",
-				MappedValue: &Int,
+			&Option{
+				LongName: "int",
+				Var:      &Int,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "int8",
-				MappedValue: &Int8,
+			&Option{
+				LongName: "int8",
+				Var:      &Int8,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "int16",
-				MappedValue: &Int16,
+			&Option{
+				LongName: "int16",
+				Var:      &Int16,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "int32",
-				MappedValue: &Int32,
+			&Option{
+				LongName: "int32",
+				Var:      &Int32,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "int64",
-				MappedValue: &Int64,
+			&Option{
+				LongName: "int64",
+				Var:      &Int64,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "uint",
-				MappedValue: &Uint,
+			&Option{
+				LongName: "uint",
+				Var:      &Uint,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "uint8",
-				MappedValue: &Uint8,
+			&Option{
+				LongName: "uint8",
+				Var:      &Uint8,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "uint16",
-				MappedValue: &Uint16,
+			&Option{
+				LongName: "uint16",
+				Var:      &Uint16,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "uint32",
-				MappedValue: &Uint32,
+			&Option{
+				LongName: "uint32",
+				Var:      &Uint32,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "uint64",
-				MappedValue: &Uint64,
+			&Option{
+				LongName: "uint64",
+				Var:      &Uint64,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "float32",
-				MappedValue: &Float32,
+			&Option{
+				LongName: "float32",
+				Var:      &Float32,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "float64",
-				MappedValue: &Float64,
+			&Option{
+				LongName: "float64",
+				Var:      &Float64,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "string",
-				MappedValue: &String,
+			&Option{
+				LongName: "string",
+				Var:      &String,
+				Kind:     Optional,
 			},
-			&Optional{
-				LongName:    "duration",
-				MappedValue: &Duration,
+			&Option{
+				LongName: "duration",
+				Var:      &Duration,
+				Kind:     Optional,
 			},
 		},
 	}); err != nil {
@@ -409,7 +436,7 @@ func (self Custom) String() string {
 	return "42"
 }
 
-func (self *Custom) Set(v RawValues) error {
+func (self *Custom) Set(v Values) error {
 	if v.First() != "42" {
 		return errors.New("fail")
 	}
@@ -423,9 +450,10 @@ func TestCustomMappedType(t *testing.T) {
 	if err := Parse(&Config{
 		Arguments: []string{"--custom=42"},
 		Globals: Options{
-			&Required{
-				LongName:    "custom",
-				MappedValue: v,
+			&Option{
+				LongName: "custom",
+				Var:      v,
+				Kind:     Required,
 			},
 		},
 	}); err != nil {
@@ -438,33 +466,39 @@ func TestPrint(t *testing.T) {
 		LongPrefix:  DefaultLongPrefix,
 		ShortPrefix: DefaultShortPrefix,
 		Globals: Options{
-			&Boolean{
+			&Option{
 				LongName:  "boolean",
 				ShortName: "b",
 				Help:      "A Boolean Option.",
+				Kind:      Boolean,
 			},
-			&Optional{
+			&Option{
 				LongName:  "optional",
 				ShortName: "o",
 				Help:      "An Optional Option.",
+				Kind:      Optional,
 			},
-			&Required{
+			&Option{
 				LongName:  "required",
 				ShortName: "r",
 				Help:      "A Required Option.",
+				Kind:      Required,
 			},
-			&Indexed{
-				Name: "indexed",
-				Help: "An Indexed Option.",
+			&Option{
+				LongName: "indexed",
+				Help:     "An Indexed Option.",
+				Kind:     Indexed,
 			},
-			&Repeated{
+			&Option{
 				LongName:  "repeated",
 				ShortName: "p",
 				Help:      "A Repeated Option.",
+				Kind:      Repeated,
 			},
-			&Variadic{
-				Name: "variadic",
-				Help: "A Variadic Option.",
+			&Option{
+				LongName: "variadic",
+				Help:     "A Variadic Option.",
+				Kind:     Variadic,
 			},
 		},
 		Commands: Commands{
@@ -472,33 +506,39 @@ func TestPrint(t *testing.T) {
 				Name: "one",
 				Help: "Command One.",
 				Options: Options{
-					&Boolean{
+					&Option{
 						LongName:  "boolean",
 						ShortName: "b",
 						Help:      "A Boolean Option.",
+						Kind:      Boolean,
 					},
-					&Optional{
+					&Option{
 						LongName:  "optional",
 						ShortName: "o",
 						Help:      "An Optional Option.",
+						Kind:      Optional,
 					},
-					&Required{
+					&Option{
 						LongName:  "required",
 						ShortName: "r",
 						Help:      "A Required Option.",
+						Kind:      Required,
 					},
-					&Indexed{
-						Name: "indexed",
-						Help: "An Indexed Option.",
+					&Option{
+						LongName: "indexed",
+						Help:     "An Indexed Option.",
+						Kind:     Indexed,
 					},
-					&Repeated{
+					&Option{
 						LongName:  "repeated",
 						ShortName: "p",
 						Help:      "A Repeated Option.",
+						Kind:      Repeated,
 					},
-					&Variadic{
-						Name: "variadic",
-						Help: "A Variadic Option.",
+					&Option{
+						LongName: "variadic",
+						Help:     "A Variadic Option.",
+						Kind:     Variadic,
 					},
 				},
 				SubCommands: Commands{
@@ -506,33 +546,39 @@ func TestPrint(t *testing.T) {
 						Name: "one",
 						Help: "Command One.",
 						Options: Options{
-							&Boolean{
+							&Option{
 								LongName:  "boolean",
 								ShortName: "b",
 								Help:      "A Boolean Option.",
+								Kind:      Boolean,
 							},
-							&Optional{
+							&Option{
 								LongName:  "optional",
 								ShortName: "o",
 								Help:      "An Optional Option.",
+								Kind:      Optional,
 							},
-							&Required{
+							&Option{
 								LongName:  "required",
 								ShortName: "r",
 								Help:      "A Required Option.",
+								Kind:      Required,
 							},
-							&Indexed{
-								Name: "indexed",
-								Help: "An Indexed Option.",
+							&Option{
+								LongName: "indexed",
+								Help:     "An Indexed Option.",
+								Kind:     Indexed,
 							},
-							&Repeated{
+							&Option{
 								LongName:  "repeated",
 								ShortName: "p",
 								Help:      "A Repeated Option.",
+								Kind:      Repeated,
 							},
-							&Variadic{
-								Name: "variadic",
-								Help: "A Variadic Option.",
+							&Option{
+								LongName: "variadic",
+								Help:     "A Variadic Option.",
+								Kind:     Variadic,
 							},
 						},
 					},
@@ -540,33 +586,39 @@ func TestPrint(t *testing.T) {
 						Name: "two",
 						Help: "Command Two.",
 						Options: Options{
-							&Boolean{
+							&Option{
 								LongName:  "boolean",
 								ShortName: "b",
 								Help:      "A Boolean Option.",
+								Kind:      Boolean,
 							},
-							&Optional{
+							&Option{
 								LongName:  "optional",
 								ShortName: "o",
 								Help:      "An Optional Option.",
+								Kind:      Optional,
 							},
-							&Required{
+							&Option{
 								LongName:  "required",
 								ShortName: "r",
 								Help:      "A Required Option.",
+								Kind:      Required,
 							},
-							&Indexed{
-								Name: "indexed",
-								Help: "An Indexed Option.",
+							&Option{
+								LongName: "indexed",
+								Help:     "An Indexed Option.",
+								Kind:     Indexed,
 							},
-							&Repeated{
+							&Option{
 								LongName:  "repeated",
 								ShortName: "p",
 								Help:      "A Repeated Option.",
+								Kind:      Repeated,
 							},
-							&Variadic{
-								Name: "variadic",
-								Help: "A Variadic Option.",
+							&Option{
+								LongName: "variadic",
+								Help:     "A Variadic Option.",
+								Kind:     Variadic,
 							},
 						},
 					},
@@ -576,33 +628,39 @@ func TestPrint(t *testing.T) {
 				Name: "two",
 				Help: "Command Two.",
 				Options: Options{
-					&Boolean{
+					&Option{
 						LongName:  "boolean",
 						ShortName: "b",
 						Help:      "A Boolean Option.",
+						Kind:      Boolean,
 					},
-					&Optional{
+					&Option{
 						LongName:  "optional",
 						ShortName: "o",
 						Help:      "An Optional Option.",
+						Kind:      Optional,
 					},
-					&Required{
+					&Option{
 						LongName:  "required",
 						ShortName: "r",
 						Help:      "A Required Option.",
+						Kind:      Required,
 					},
-					&Indexed{
-						Name: "indexed",
-						Help: "An Indexed Option.",
+					&Option{
+						LongName: "indexed",
+						Help:     "An Indexed Option.",
+						Kind:     Indexed,
 					},
-					&Repeated{
+					&Option{
 						LongName:  "repeated",
 						ShortName: "p",
 						Help:      "A Repeated Option.",
+						Kind:      Repeated,
 					},
-					&Variadic{
-						Name: "variadic",
-						Help: "A Variadic Option.",
+					&Option{
+						LongName: "variadic",
+						Help:     "A Variadic Option.",
+						Kind:     Variadic,
 					},
 				},
 			},
@@ -610,33 +668,39 @@ func TestPrint(t *testing.T) {
 				Name: "three",
 				Help: "Command Three.",
 				Options: Options{
-					&Boolean{
+					&Option{
 						LongName:  "boolean",
 						ShortName: "b",
 						Help:      "A Boolean Option.",
+						Kind:      Boolean,
 					},
-					&Optional{
+					&Option{
 						LongName:  "optional",
 						ShortName: "o",
 						Help:      "An Optional Option.",
+						Kind:      Optional,
 					},
-					&Required{
+					&Option{
 						LongName:  "required",
 						ShortName: "r",
 						Help:      "A Required Option.",
+						Kind:      Required,
 					},
-					&Indexed{
-						Name: "indexed",
-						Help: "An Indexed Option.",
+					&Option{
+						LongName: "indexed",
+						Help:     "An Indexed Option.",
+						Kind:     Indexed,
 					},
-					&Repeated{
+					&Option{
 						LongName:  "repeated",
 						ShortName: "p",
 						Help:      "A Repeated Option.",
+						Kind:      Repeated,
 					},
-					&Variadic{
-						Name: "variadic",
-						Help: "A Variadic Option.",
+					&Option{
+						LongName: "variadic",
+						Help:     "A Variadic Option.",
+						Kind:     Variadic,
 					},
 				},
 			},

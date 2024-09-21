@@ -18,12 +18,13 @@ var (
 	optionsCmd = &cmdline.Command{
 		Name: "options",
 		Help: "Defines a set of options.",
-		Options: []cmdline.Option{
-			&cmdline.Required{
-				LongName:    "outDir",
-				ShortName:   "",
-				Help:        "Output directory.  OutputDirectory is the output directory.  This is a\nmultiline comment.",
-				MappedValue: &optionsVar.OutputDirectory,
+		Options: cmdline.Options{
+			&cmdline.Option{
+				LongName:  "outDir",
+				ShortName: "",
+				Help:      "Output directory.  OutputDirectory is the output directory.  This is a\nmultiline comment.",
+				Var:       &optionsVar.OutputDirectory,
+				Kind:      cmdline.Required,
 			},
 		},
 		Handler: handleOptions,
@@ -31,24 +32,27 @@ var (
 	configCmd = &cmdline.Command{
 		Name: "config",
 		Help: "",
-		Options: []cmdline.Option{
-			&cmdline.Optional{
-				LongName:    "Name",
-				ShortName:   "",
-				Help:        "Name is the name.",
-				MappedValue: &configVar.Name,
+		Options: cmdline.Options{
+			&cmdline.Option{
+				LongName:  "Name",
+				ShortName: "",
+				Help:      "Name is the name.",
+				Var:       &configVar.Name,
+				Kind:      cmdline.Optional,
 			},
-			&cmdline.Required{
-				LongName:    "Age",
-				ShortName:   "",
-				Help:        "Age is the age.",
-				MappedValue: &configVar.Age,
+			&cmdline.Option{
+				LongName:  "Age",
+				ShortName: "",
+				Help:      "Age is the age.",
+				Var:       &configVar.Age,
+				Kind:      cmdline.Required,
 			},
-			&cmdline.Boolean{
-				LongName:    "Subscribed",
-				ShortName:   "",
-				Help:        "Subscribed is usually true.",
-				MappedValue: &configVar.Subscribed,
+			&cmdline.Option{
+				LongName:  "Subscribed",
+				ShortName: "",
+				Help:      "Subscribed is usually true.",
+				Var:       &configVar.Subscribed,
+				Kind:      cmdline.Boolean,
 			},
 		},
 		Handler: handleConfig,

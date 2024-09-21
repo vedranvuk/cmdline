@@ -14,24 +14,24 @@ import (
 // well. Returns nil on success.
 func ValidateOptions(options Options) error {
 	for _, option := range options {
-		switch option.(type) {
-		case *Boolean, *Optional, *Required, *Indexed, *Repeated, *Variadic:
+		switch option.Kind {
+		case Boolean, Optional, Required, Indexed, Repeated, Variadic:
 		default:
 			return errors.New("validation failed: invalid option type, must be a pointer to one of supported option types")
 		}
-		if option.GetLongName() == "" {
+		if option.LongName == "" {
 			return errors.New("validation failed: an option with an empty long name is defined")
 		}
 		for _, other := range options {
-			if other != option && other.GetLongName() == option.GetLongName() {
-				return fmt.Errorf("validation failed: duplicate option long name: %s", option.GetLongName())
+			if other != option && other.LongName == option.LongName {
+				return fmt.Errorf("validation failed: duplicate option long name: %s", option.LongName)
 			}
 		}
-		if option.GetShortName() != "" {
+		if option.ShortName != "" {
 			for _, other := range options {
-				if other != option && other.GetShortName() != "" {
-					if other.GetShortName() == option.GetShortName() {
-						return fmt.Errorf("validation failed: duplicate option short name: %s", option.GetLongName())
+				if other != option && other.ShortName != "" {
+					if other.ShortName == option.ShortName {
+						return fmt.Errorf("validation failed: duplicate option short name: %s", option.LongName)
 					}
 				}
 			}
@@ -44,7 +44,7 @@ func ValidateOptions(options Options) error {
 // Variadic Option.
 func optionsHaveVariadicOption(options Options) bool {
 	for _, opt := range options {
-		if _, isVariadic := opt.(*Variadic); isVariadic {
+		if opt.Kind == Variadic {
 			return true
 		}
 	}
@@ -64,7 +64,7 @@ func ValidateCommands(commands Commands) (err error) {
 		}
 		if command.SubCommands.Count() > 0 {
 			for _, opt := range command.Options {
-				if _, isVariadic := opt.(*Variadic); isVariadic {
+				if opt.Kind == Variadic {
 					return fmt.Errorf("validation failed: command '%s' contains a variadic option and may have no sub-commands", command.Name)
 				}
 			}
@@ -99,7 +99,7 @@ func validateExclusivityGroups(groups ExclusivityGroups, options Options) error 
 	for _, group := range groups {
 		conflict = ""
 		for _, name := range group {
-			if options.IsParsed(name) {
+			if options.Parsed(name) {
 				if conflict != "" {
 					return fmt.Errorf("options '%s' and '%s' are mutually exclusive", conflict, name)
 				}

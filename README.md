@@ -1,6 +1,6 @@
 # cmdline
 
-Cmdline is handler based command line parser using a declarative approach. It supports Commands with SubCommands, multiple Option types and mapping to variables.
+Cmdline is handler based command line parser. It supports Commands with SubCommands, multiple Option types and mapping to variables.
 
 Package is in experimental stage.
 

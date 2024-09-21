@@ -14,14 +14,15 @@ func ExampleParse() {
 	var value = ""
 
 	var config = &cmdline.Config{
-		Arguments:   []string{"--verbose", "items", "add", "-f", "-c=9000", "--value=\"rofl\""},
+		Arguments:             []string{"--verbose", "items", "add", "-f", "-c=9000", "--value=\"rofl\""},
 		NoExecLastHandlerOnly: true,
 		Globals: cmdline.Options{
-			&cmdline.Boolean{
-				LongName:    "verbose",
-				ShortName:   "v",
-				Help:        "Be verbose.",
-				MappedValue: &verbose,
+			&cmdline.Option{
+				LongName:  "verbose",
+				ShortName: "v",
+				Help:      "Be verbose.",
+				Var:       &verbose,
+				Kind:      cmdline.Boolean,
 			},
 		},
 		GlobalsHandler: func(c cmdline.Context) error {
@@ -37,9 +38,10 @@ func ExampleParse() {
 					return nil
 				},
 				Options: cmdline.Options{
-					&cmdline.Variadic{
-						Name: "topic",
-						Help: "Help topic.",
+					&cmdline.Option{
+						LongName: "topic",
+						Help:     "Help topic.",
+						Kind:     cmdline.Variadic,
 					},
 				},
 			},
@@ -55,27 +57,30 @@ func ExampleParse() {
 						Name: "add",
 						Help: "Add an item.",
 						Handler: func(c cmdline.Context) error {
-							fmt.Printf("command: add (force: %t) (count: %t)\n", c.IsParsed("force"), c.IsParsed("count"))
+							fmt.Printf("command: add (force: %t) (count: %t)\n", c.Parsed("force"), c.Parsed("count"))
 							return nil
 						},
 						Options: cmdline.Options{
-							&cmdline.Boolean{
-								LongName:    "force",
-								ShortName:   "f",
-								Help:        "Force it.",
-								MappedValue: &force,
+							&cmdline.Option{
+								LongName:  "force",
+								ShortName: "f",
+								Help:      "Force it.",
+								Var:       &force,
+								Kind:      cmdline.Boolean,
 							},
-							&cmdline.Optional{
-								LongName:    "count",
-								ShortName:   "c",
-								Help:        "Give a count.",
-								MappedValue: &count,
+							&cmdline.Option{
+								LongName:  "count",
+								ShortName: "c",
+								Help:      "Give a count.",
+								Var:       &count,
+								Kind:      cmdline.Optional,
 							},
-							&cmdline.Optional{
-								LongName:    "value",
-								ShortName:   "v",
-								Help:        "Give a value.",
-								MappedValue: &value,
+							&cmdline.Option{
+								LongName:  "value",
+								ShortName: "v",
+								Help:      "Give a value.",
+								Var:       &value,
+								Kind:      cmdline.Optional,
 							},
 						},
 					},

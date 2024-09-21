@@ -28,7 +28,7 @@ var NopHandler = func(Context) error { return nil }
 
 // HelpHandler is a utility handler that prints the current configuration,
 var HelpHandler = func(c Context) error {
-	PrintConfig(os.Stdout, c.GetConfig())
+	PrintConfig(os.Stdout, c.Config())
 	return nil
 }
 
@@ -38,45 +38,37 @@ var HelpHandler = func(c Context) error {
 type Context interface {
 
 	// Context embeds the standard Context.
+	//
 	// It might carry a timeout, deadline or values available to invoked
 	// Command Handler. It will be the context given to ParseCtx or
 	// context.Background if Parse was used.
 	context.Context
 
-	// SetIfParsed sets the value of the second parameter to the parsed value
-	// if option named with first parameter was parsed.
+	// Parsed returns true if an Option with specified LongName was parsed.
+	Parsed(string) bool
+
+	// Values returns an array of strings that were passed to the
+	// Option under specified LongName.
 	//
-	// Value is set from first value in RawValues which could be empty. If
-	// RawValues are empty value is not set.
+	// Unparsed Options and options that take no arguments return nil.
+	Values(string) Values
+
+	// Config returns the config that is being used to parse.
+	Config() *Config
+
+	// Command returns the owner Command of this handler.
 	//
-	// It returns truth if value was set.
-	SetIfParsed(string, *string) bool
+	// If this handler is the global options handler result will be nil.
+	Command() *Command
 
-	// IsParsed returns true if an Option with specified name was parsed.
+	// ParentCommand returns the parent command of this handler's command.
 	//
-	// Options with both Long and Short names use Long names to match against
-	// the option name given to this method.
-	IsParsed(string) bool
-
-	// RawValues returns an array of raw string values that were passed to the
-	// Option under specified Name/LongName. Unparsed Options and options that
-	// take no arguments return an empty string.
-	RawValues(string) RawValues
-
-	// GetConfig returns the config that is being used to parse.
-	GetConfig() *Config
-
-	// GetOptions returns this Commands' Options.
-	GetOptions() Options
-
-	// GetCommand returns the owner Command of this handler.
-	// If this handler is the global options handler command will be nil.
-	GetCommand() *Command
-
-	// GetParentCommand returns the parent command of this handler's command.
 	// It may return nil if this command has no parent command or if this
 	// handler is the global options handler.
-	GetParentCommand() *Command
+	ParentCommand() *Command
+
+	// Options returns this Command's Options.
+	Options() Options
 }
 
 // Command defines a command invocable by name.

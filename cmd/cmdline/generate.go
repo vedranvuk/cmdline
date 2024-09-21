@@ -222,26 +222,12 @@ type (
 		BasicType string
 
 		// Kind is the [cmdline.Option] kind to generate.
-		Kind cmdline.OptionKind
+		Kind cmdline.Kind
 	}
 )
 
 func (self Command) Signature() string {
 	return self.SourceStructPackageName + "." + self.SourceStructType
-}
-
-// Signature returns the option type signature, with "cmdline." selector
-// prefix. Used from template that generates the go commands file.
-func (self Option) Signature() string {
-	switch self.Kind {
-	case cmdline.OptionBoolean:
-		return "cmdline.Boolean"
-	case cmdline.OptionOptional:
-		return "cmdline.Optional"
-	case cmdline.OptionRequired:
-		return "cmdline.Required"
-	}
-	return ""
 }
 
 // Generate generates the go source code containing cmdline.Command definitions
@@ -413,16 +399,16 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	}
 	switch opt.BasicType = self.Model.Bast.ResolveBasicType(f.Type); opt.BasicType {
 	case "bool":
-		opt.Kind = cmdline.OptionBoolean
+		opt.Kind = cmdline.Boolean
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
 		"float32", "float64",
 		"string", "[]string":
 		if optional {
-			opt.Kind = cmdline.OptionOptional
+			opt.Kind = cmdline.Optional
 		}
 		if required {
-			opt.Kind = cmdline.OptionRequired
+			opt.Kind = cmdline.Required
 		}
 	case "":
 		log.Printf("Cannot determine basic type for field %s, skipping.\n", f.Type)
