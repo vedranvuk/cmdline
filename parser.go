@@ -67,12 +67,13 @@ type Config struct {
 
 	// NoFailOnUnparsedRequired if true, will not return an error if a
 	// defined Required or Indexed option was not parsed from arguments.
-	// Defaults to false.
+	//
+	// Default: false
 	NoFailOnUnparsedRequired bool
 
 	// NoAssignment if true, uses '--key value' format instead of '--key=value'.
 	//
-	// Default: false.
+	// Default: false
 	NoAssignment bool
 
 	// NoIndexedFirst if true, does not require that any Indexed Options must
@@ -84,6 +85,8 @@ type Config struct {
 	// NoExecLastHandlerOnly if true will execute handlers of all Commands in
 	// the execution chain. If false Parse executes only the Handler of the
 	// last Command in the execution chain.
+	//
+	// Default: false
 	NoExecLastHandlerOnly bool
 
 	// context is the context given to Config.Parse and is set at that time.
@@ -91,6 +94,14 @@ type Config struct {
 	context context.Context
 	// chain is the chain of commands to execute determined by parse.
 	chain []*Command
+}
+
+func Default() *Config {
+	return &Config{
+		Arguments:   os.Args[1:],
+		LongPrefix:  DefaultLongPrefix,
+		ShortPrefix: DefaultShortPrefix,
+	}
 }
 
 // Parse parses config.Arguments into config.Globals then config.Commands.

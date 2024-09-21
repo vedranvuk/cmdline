@@ -110,10 +110,21 @@ type Command struct {
 	executed bool
 }
 
+// ExclusivityGroup defines a group of option names which are mutually
+// exclusive and may not be passed together to a command at the same time.
+type ExclusivityGroup []string
+
+// ExclusivityGroups is a group of ExclusivityGroup used to define more than
+// one ExclusivityGroup.
+type ExclusivityGroups []ExclusivityGroup
+
 // Commands holds a set of Commands.
 // Commands are never sorted and the order in which they are declared is
 // important to the Print function which prints the Commands in the same order.
 type Commands []*Command
+
+// Count returns the number of defined commands in self.
+func (self Commands) Count() int { return len(self) }
 
 // Register is a helper that registers a fully defined Command and returns self.
 func (self *Commands) Register(command *Command) Commands {
@@ -132,9 +143,6 @@ func (self *Commands) Handle(name, help string, h Handler) (c *Command) {
 	self.Register(c)
 	return
 }
-
-// Count returns the number of defined commands in self.
-func (self Commands) Count() int { return len(self) }
 
 // Find returns a Command from self by name or nil if not found.
 func (self Commands) Find(name string) *Command {
@@ -156,21 +164,21 @@ func (self Commands) AnyExecuted() bool {
 	return false
 }
 
-// VisitCommandFunc is a prototype of a function called for each Command visited.
+// VisitCommand is a prototype of a function called for each Command visited.
 // It must return true to continue enumeration.
-type VisitCommandFunc func(c *Command) bool
+type VisitCommand func(c *Command) bool
 
 // Walk calls f for each command in self, recursively.
 // Order is top-down, i.e. parents first.
-func (self Commands) Walk(f VisitCommandFunc) { walkCommands(self, f, true, true) }
+func (self Commands) Walk(f VisitCommand) { walkCommands(self, f, true, true) }
 
 // WalkExecuted calls f for each executed command in self, recursively.
 // Order is top-down, i.e. parents first.
-func (self Commands) WalkExecuted(f VisitCommandFunc) { walkCommands(self, f, true, false) }
+func (self Commands) WalkExecuted(f VisitCommand) { walkCommands(self, f, true, false) }
 
 // WalkNotExecuted calls f for each not executed command in self, recursively.
 // Order is top-down, i.e. parents first.
-func (self Commands) WalkNotExecuted(f VisitCommandFunc) { walkCommands(self, f, false, true) }
+func (self Commands) WalkNotExecuted(f VisitCommand) { walkCommands(self, f, false, true) }
 
 // walk walks c calling f for each.
 func walkCommands(c Commands, f func(c *Command) bool, executed, notexecuted bool) {

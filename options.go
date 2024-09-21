@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vedranvuk/strutils"
 )
 
 // Kind specifies the kind of an Option.
@@ -127,14 +129,14 @@ type Option struct {
 	// It should be a short, single line description of the option.
 	Help string
 
-	// IsParsed indicates if the Option was parsed from arguments. 
+	// IsParsed indicates if the Option was parsed from arguments.
 	//
-	// For Repeated Options it indicates that the Option was parsed at least 
+	// For Repeated Options it indicates that the Option was parsed at least
 	// once.
 	IsParsed bool
 
 	// Kind is the kind of option which determines how the Option parses
-	// its arguments. 
+	// its arguments.
 	//
 	// See [Kind] for details.
 	Kind
@@ -144,7 +146,7 @@ type Option struct {
 	// How Values is parsed depends on [Option.Kind].
 	Values
 
-	// Var is an optional pointer to a variable that will be set from Option 
+	// Var is an optional pointer to a variable that will be set from Option
 	// argument(s).
 	//
 	// Only basic types are supported and a slice of string.
@@ -155,13 +157,13 @@ type Option struct {
 // passed to an Option. It implements several utilities for retrieving values.
 type Values []string
 
-// Count returns number of items in self.
+// Count returns number of items in Values.
 func (self Values) Count() int { return len(self) }
 
-// IsEmpty returns true if RawValues are empty.
+// IsEmpty returns true if Values are empty.
 func (self Values) IsEmpty() bool { return len(self) == 0 }
 
-// First returns the first value in self or an empty string if empty.
+// First returns the first element in Values or an empty string if empty.
 func (self Values) First() string {
 	if len(self) > 0 {
 		return self[0]
@@ -169,30 +171,36 @@ func (self Values) First() string {
 	return ""
 }
 
-// Options contains and manages a set of Options.
+// Value defines a type that is capable of parsing a string into a value it
+// represents.
 //
-// Options set is used to define a set of Options for a Command of the global
-// Options not applicable to any specific Command - or all.
+// Options support parsing aruments in types that satisfy the Value interface.
+// A Value can be set as a target Var in an Option.
+type Value interface {
+	// String must return a string representation of the type.
+	String() string
+	// Set must parse a string into self or return an error if it failed.
+	Set(Values) error
+}
+
+// Options contains and manages a set of Options.
 //
 // Options are never sorted and the order in which Options are declared is
 // importan; Print lists them in the oder they were declared and Indexed
 // options are matched to indexes of their arguments.
 type Options []*Option
 
-// Register registers an Option in these Options where option must be one of
-// the Option definition structs in this file. It returns self.
-// Option parameter must be one of:
-//
-//	Boolean, Optional, Required, Indexed, Variadic
+// Returns number of registered options in self.
+func (self Options) Count() int { return len(self) }
+
+// Register adds a new option to these Options and returns self.
 func (self *Options) Register(option *Option) *Options {
 	// TODO: Check short key dulicates.
 	*self = append(*self, option)
 	return self
 }
 
-// Flag defines an option that is not required. It takes no arguments.
-// Option is defined by long and short names and shows help when printed.
-// Returns self.
+// Boolean registers a new Boolean option in self and returns self.
 func (self *Options) Boolean(longName, shortName, help string) *Options {
 	return self.Register(&Option{
 		LongName:  longName,
@@ -202,11 +210,7 @@ func (self *Options) Boolean(longName, shortName, help string) *Options {
 	})
 }
 
-// Optional defines an optional option.
-//
-// An optional option is an option which is not required and raises no error if
-// not parsed from arguments. Optional option takes a single argument as value
-// which can be retrieved from Command context using Value("option_name")
+// Optional registers a new optional option in self and returns self.
 func (self *Options) Optional(longName, shortName, help string) *Options {
 	return self.Register(&Option{
 		LongName:  longName,
@@ -216,10 +220,7 @@ func (self *Options) Optional(longName, shortName, help string) *Options {
 	})
 }
 
-// Required defines an option that is required. It takes one argument that is
-// described as type of value for the option when printing.
-// Option is defined by long and short names and shows help when printed.
-// Returns self.
+// Required registers a new required option in self and returns self.
 func (self *Options) Required(longName, shortName, help string) *Options {
 	return self.Register(&Option{
 		LongName:  longName,
@@ -229,21 +230,7 @@ func (self *Options) Required(longName, shortName, help string) *Options {
 	})
 }
 
-// Indexed defines an option that is passed by index, i.e. the value for the
-// option is not prefixed with a short or long option name. It takes one
-// argument that is described as type of value for the option when printing.
-// Option is defined by long and short names and shows help when printed.
-// Returns self.
-func (self *Options) Indexed(name, help string) *Options {
-	return self.Register(&Option{
-		LongName:  name,
-		ShortName: "",
-		Help:      help,
-		Kind:      Indexed,
-	})
-}
-
-// Repeated defines a repeatable option.
+// Repeated registers a new repeated option in self and returns self.
 func (self *Options) Repeated(longName, shortName, help string) *Options {
 	return self.Register(&Option{
 		LongName:  longName,
@@ -253,13 +240,17 @@ func (self *Options) Repeated(longName, shortName, help string) *Options {
 	})
 }
 
-// Variadic defines an option that treats any and all arguments left to parse as
-// arguments to self. Only one Variadic option may be defined on a command, it
-// must be declared last i.e. no options may be defined after it and the command
-// may not have command subsets.
-//
-// Any unparsed arguments at the time of invocation of this option's command
-// handler are retrievable via Context.Value as a space delimited string array.
+// Indexed registers a new indexed option in self and returns self.
+func (self *Options) Indexed(name, help string) *Options {
+	return self.Register(&Option{
+		LongName:  name,
+		ShortName: "",
+		Help:      help,
+		Kind:      Indexed,
+	})
+}
+
+// Variadic registers a new variadic option in self and returns self.
 func (self *Options) Variadic(name, help string) *Options {
 	return self.Register(&Option{
 		LongName:  name,
@@ -268,9 +259,6 @@ func (self *Options) Variadic(name, help string) *Options {
 		Kind:      Variadic,
 	})
 }
-
-// Returns number of registered options in self.
-func (self Options) Count() int { return len(self) }
 
 // FindLong returns an Option with given longName or nil if not found.
 func (self Options) FindLong(longName string) *Option {
@@ -312,23 +300,6 @@ func (self Options) Values(longName string) Values {
 	return nil
 }
 
-// ExclusivityGroup defines a group of option names which are mutually
-// exclusive and may not be passed together to a command at the same time.
-type ExclusivityGroup []string
-
-// ExclusivityGroups is a group of ExclusivityGroup used to define more than
-// one ExclusivityGroup.
-type ExclusivityGroups []ExclusivityGroup
-
-// Value defines a type that is capable of parsing a string into a value it
-// represents.
-type Value interface {
-	// String must return a string representation of the type.
-	String() string
-	// Set must parse a string into self or return an error if it failed.
-	Set(Values) error
-}
-
 // parse parses self from args or returns an error.
 func (self Options) parse(config *Config) (err error) {
 
@@ -344,7 +315,7 @@ func (self Options) parse(config *Config) (err error) {
 
 	for !config.Arguments.Eof() {
 
-		// If NoAssignment is set the
+		// Parse key and val.
 		if config.NoAssignment {
 			key = strings.TrimSpace(config.Arguments.Text(config))
 			val = ""
@@ -353,10 +324,7 @@ func (self Options) parse(config *Config) (err error) {
 			key, val, assignment = strings.Cut(config.Arguments.Text(config), "=")
 			key = strings.TrimSpace(key)
 			if assignment && val != "" {
-				val = strings.TrimSpace(val)
-				if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
-					val = strings.TrimPrefix(strings.TrimSuffix(val, "\""), "\"")
-				}
+				val, _ = strutils.UnquoteDouble(strings.TrimSpace(val))
 			}
 		}
 

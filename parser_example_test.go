@@ -2,6 +2,7 @@ package cmdline_test
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/vedranvuk/cmdline"
 )
@@ -105,4 +106,29 @@ func ExampleParse() {
 	// verbose requested.
 	// command: items
 	// command: add (force: true) (count: true)
+}
+
+func ExampleParseCtx() {
+	var config = cmdline.Default()
+	config.Globals.
+		Boolean("verbose", "v", "Be verbose.")
+	config.GlobalsHandler = func(c cmdline.Context) error {
+		return nil
+	}
+
+	config.Commands.Handle(
+		"options",
+		"Manage options",
+		func(c cmdline.Context) error {
+			return nil
+		},
+	).Options.
+		Boolean("overwrite", "w", "Overwrite options").
+		Optional("name", "n", "Set name")
+
+	if err := config.Parse(nil); err != nil {
+		log.Fatal(err)
+	}
+	//Output:
+
 }
