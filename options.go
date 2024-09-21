@@ -67,7 +67,25 @@ type State struct {
 	IsParsed bool
 
 	// RawValues will contain any arguments given as a value to the Option.
-	RawValues []string
+	RawValues
+}
+
+// RawValues is a helper alias for a slice of strings representing arguments
+// passed to an Option. It implements several utilities for retrieving values.
+type RawValues []string
+
+// Count returns number of items in self.
+func (self RawValues) Count() int { return len(self) }
+
+// IsEmpty returns true if RawValues are empty.
+func (self RawValues) IsEmpty() bool { return len(self) == 0 }
+
+// First returns the first value in self or an empty string if empty.
+func (self RawValues) First() string {
+	if len(self) > 0 {
+		return self[0]
+	}
+	return ""
 }
 
 // Boolean defines a boolean option.

@@ -44,11 +44,11 @@ const (
 // cmdline:"help=Generates commands from structs parsed from packages."
 type GenerateConfig struct {
 
-	// TagName is the name of the tag read by cmdline from struct tags or
-	// doc comments.
+	// TagKey is the name of the tag key whose value is read by cmdline from
+	// struct tags or doc comments.
 	//
-	// Default: DefaultNameTag.
-	TagName string `cmdline:"name=tag-name" json:"tagName,omitempty"`
+	// Default: DefaultTagKey.
+	TagKey string `cmdline:"name=tag-key" json:"tagName,omitempty"`
 
 	// OutputFile is the output file that will contain generated commands.
 	// It can be a full or relative path to a go file and if ommited a default
@@ -88,7 +88,7 @@ type GenerateConfig struct {
 // DefaultGenerateConfig returns the default [GenerateConfig].
 func DefaultGenerateConfig() (c *GenerateConfig) {
 	c = new(GenerateConfig)
-	c.TagName = DefaultTagKey
+	c.TagKey = DefaultTagKey
 	c.OutputFile = DefaultOutputFile
 	c.HelpFromTag = true
 	c.HelpFromDocs = true
@@ -100,12 +100,12 @@ func DefaultGenerateConfig() (c *GenerateConfig) {
 	return
 }
 
-// TagKey is a known key read from the a cmdline tag value.
+// PairKey is a known pair key read from the a cmdline tag value.
 //
 // It can appear in a struct tag or a doc comment of a struct being bound to.
 // In a struct doc comment it can be specified multiple times.
 // Some keys take values in key=value format.
-type TagKey = string
+type PairKey = string
 
 const (
 	// NameKey is used on a source struct and specifies the name of the command
@@ -116,7 +116,7 @@ const (
 	//
 	// It takes a single value in the key=value format that defines the command
 	// name. E.g.: name=MyStruct.
-	NameKey TagKey = "name"
+	NameKey PairKey = "name"
 
 	// HelpKey is used on a source struct and specifies the help text to be set
 	// with the command that will represent the struct.
@@ -127,29 +127,29 @@ const (
 	//
 	// Help text cannnot span multiple lines, it is a one-line shown to user
 	// when cmdline config help is requested.
-	HelpKey TagKey = "help"
+	HelpKey PairKey = "help"
 
 	// IgnoreKey is read from struct fields and specifies that the tagged field
 	// should be excluded from generated command options.
 	//
 	// It takes no values.
-	IgnoreKey TagKey = "ignore"
+	IgnoreKey PairKey = "ignore"
 
 	// OptionalKey is read from struct fields and specifies that the tagged
 	// field should use the Optional option.
 	//
 	// It takes no values.
-	OptionalKey TagKey = "optional"
+	OptionalKey PairKey = "optional"
 
 	// RequiredKey is read from struct fields and specifies that the tagged
 	// field should use the Required option.
 	//
 	// It takes no values.
-	RequiredKey TagKey = "required"
+	RequiredKey PairKey = "required"
 )
 
-// AllTags is a slice of  all supported cmdline tags.
-var AllTags = []string{NameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey}
+// AllPairKeys is a slice of  all supported cmdline tags.
+var AllPairKeys = []string{NameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey}
 
 // Generate model.
 
@@ -179,7 +179,7 @@ type (
 		// name or specified via cmdline tag in struct doc comments.
 		Name string
 
-		// Help text is the COmmand help text generated from source struct
+		// Help text is the Command help text generated from source struct
 		// doc comments.
 		Help string // help text
 
@@ -200,14 +200,27 @@ type (
 	// from a source struct field.
 	Option struct {
 		// LongName is the long name for the Option.
+		// Set from the source field name or custom name from tag.
 		LongName string
+
 		// ShortName is the short name for the option.
+		// Auto generated.
 		ShortName string
+
 		// Help is the option help text.
-		Help []string
+		Help string
+
+		// FieldName is the source field name.
+		FieldName string
+
+		// FieldPath is the path through the nested structs to the struct field
+		// in the source struct.
+		FieldPath string
+
 		// BasicType is the determined basic type of the field for which Option
 		// is generated.
 		BasicType string
+
 		// Kind is the [cmdline.Option] kind to generate.
 		Kind cmdline.OptionKind
 	}
@@ -238,8 +251,8 @@ func (self Option) Signature() string {
 // as generate source must have the NameTag at minimum.
 func (self GenerateConfig) Generate() (err error) {
 
-	if self.TagName == "" {
-		self.TagName = DefaultTagKey
+	if self.TagKey == "" {
+		self.TagKey = DefaultTagKey
 	}
 	if self.OutputFile == "" {
 		self.OutputFile = DefaultOutputFile
@@ -260,8 +273,8 @@ func (self GenerateConfig) Generate() (err error) {
 	for _, s := range self.Model.Bast.AllStructs() {
 
 		var tag = strutils.Tag{
-			KnownPairKeys:     AllTags,
-			TagKey:            self.TagName,
+			KnownPairKeys:     AllPairKeys,
+			TagKey:            self.TagKey,
 			ErrorOnUnknownKey: true,
 		}
 
@@ -273,6 +286,10 @@ func (self GenerateConfig) Generate() (err error) {
 			}
 		}
 
+		if tag.Exists(IgnoreKey) {
+			continue
+		}
+
 		var c = Command{
 			Name:                    s.Name,
 			Help:                    strings.Join(tag.Values[HelpKey], "\n"),
@@ -280,15 +297,11 @@ func (self GenerateConfig) Generate() (err error) {
 			SourceStructPackageName: s.GetPackage().Name,
 		}
 
-		if tag.Exists(IgnoreKey) {
-			continue
-		}
-
-		var name = s.Name
 		if tag.Exists(NameKey) {
-			if name = tag.First(NameKey); name == "" {
+			if tag.First(NameKey) == "" {
 				err = errors.New("invalid name tag, no value")
 			}
+			c.Name = tag.First(NameKey)
 		}
 
 		var (
@@ -301,6 +314,7 @@ func (self GenerateConfig) Generate() (err error) {
 		}
 
 		self.Model.ImportMap[s.GetPackage().Path] = s.GetPackage().Name
+
 		if err = self.parseStruct(s, "", &c); err != nil {
 			return
 		}
@@ -349,9 +363,13 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	}
 
 	var tag = strutils.Tag{
-		KnownPairKeys:     AllTags,
-		TagKey:            self.TagName,
+		KnownPairKeys:     AllPairKeys,
+		TagKey:            self.TagKey,
 		ErrorOnUnknownKey: true,
+	}
+
+	if tag.Exists(IgnoreKey) {
+		return nil
 	}
 
 	if err = tag.Parse(f.Tag); err != nil {
@@ -386,39 +404,32 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 		optional = true
 	}
 
-	var opt Option
+	var opt = Option{
+		LongName:  name,
+		ShortName: "",
+		Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
+		FieldName: f.Name,
+		FieldPath: path,
+	}
 	switch opt.BasicType = self.Model.Bast.ResolveBasicType(f.Type); opt.BasicType {
-	case "":
-		log.Printf("Cannot determine basic type for field %s, skipping.\n", f.Type)
 	case "bool":
-		opt = Option{
-			LongName:  name,
-			ShortName: "",
-			Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
-			Kind:      cmdline.OptionBoolean,
-		}
+		opt.Kind = cmdline.OptionBoolean
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
 		"float32", "float64",
 		"string", "[]string":
 		if optional {
-			opt = Option{
-				LongName:  name,
-				ShortName: "",
-				Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
-				Kind:      cmdline.OptionOptional,
-			}
+			opt.Kind = cmdline.OptionOptional
 		}
 		if required {
-			opt = Option{
-				LongName:  name,
-				ShortName: "",
-				Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
-				Kind:      cmdline.OptionRequired,
-			}
+			opt.Kind = cmdline.OptionRequired
 		}
+	case "":
+		log.Printf("Cannot determine basic type for field %s, skipping.\n", f.Type)
+		return nil
 	default:
 		log.Printf("Unknown basic type: %s\n", opt.BasicType)
+		return nil
 	}
 
 	c.Options = append(c.Options, opt)
@@ -504,8 +515,9 @@ func (self *GenerateConfig) uncommentDocs(in []string) (out []string) {
 }
 
 // helpFromDoc generates help from tag and doc comment.
-func (self *GenerateConfig) makeHelp(tag, doc []string) (out []string) {
+func (self *GenerateConfig) makeHelp(tag, doc []string) string {
 	const col = 80
+	var out []string
 	var lt, ld, l = len(tag), len(doc), 0
 	if !self.HelpFromTag {
 		lt = 0
@@ -529,12 +541,13 @@ func (self *GenerateConfig) makeHelp(tag, doc []string) (out []string) {
 		if strings.HasPrefix(line, "go:") {
 			continue
 		}
-		if strings.HasPrefix(line, self.TagName+":") {
+		if strings.HasPrefix(line, self.TagKey+":") {
 			continue
 		}
 		out = append(out, line)
 	}
-	return strutils.WrapText(strings.Join(out, " "), col, false)
+	out = strutils.WrapText(strings.Join(out, " "), col, false)
+	return strings.Join(out, "\\n")
 }
 
 // LazyStructCopy copies values from src fields that have a coresponding field

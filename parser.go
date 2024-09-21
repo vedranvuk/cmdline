@@ -32,7 +32,6 @@ type Config struct {
 	// Arguments are the arguments to parse. This is usually set to os.Args[1:].
 	Arguments Arguments
 
-
 	// Globals are the global Options, independant of any defined commands.
 	//
 	// They are parsed from arguments that precede any command invocation.
@@ -42,7 +41,7 @@ type Config struct {
 
 	// GlobalsHandler is an optional handler for Globals.
 	//
-	// It is invoked if any global options get parsed and before any command 
+	// It is invoked if any global options get parsed and before any command
 	// handlers are invoked.
 	GlobalsHandler Handler
 
@@ -59,6 +58,7 @@ type Config struct {
 	// LongPrefix is the long Option prefix to use. It is optional and is
 	// defaulted to DefaultLongPrefix by Parse() if left empty.
 	LongPrefix string
+	
 	// ShortPrefix is the short Option prefix to use. It is optional and is
 	// defaulted to DefaultShortPrefix by Parse() if left empty.
 	ShortPrefix string
@@ -67,17 +67,24 @@ type Config struct {
 	// defined Required or Indexed option was not parsed from arguments.
 	// Defaults to false.
 	NoFailOnUnparsedRequired bool
+
 	// NoAssignment if true, uses '--key value' format instead of '--key=value'.
-	// Defaults to false.
+	//
+	// Default: false.
 	NoAssignment bool
+
 	// NoIndexedFirst if true, does not require that any Indexed Options must
 	// be parsed before any other types of defined options.
-	// Defaults to False.
+	//
+	// Default: false
 	NoIndexedFirst bool
+
 	// NoExecLastHandlerOnly if true will execute handlers of all Commands in
 	// the execution chain. If false Parse executes only the Handler of the
 	// last Command in the execution chain.
 	NoExecLastHandlerOnly bool
+
+
 	// context is the context given to Config.Parse and is set at that time.
 	// If nil context was given, Config.Parse sets it to context.Background().
 	context context.Context
@@ -151,7 +158,7 @@ func (self *Config) PrintUsage() {
 // Variadic Option definition, it may not have any sub commands as Variadic
 // Option consumes all remaining arguments as its values and stops further
 // sub Command parsing.
-func (self *Config)  Parse(ctx context.Context) (err error) {
+func (self *Config) Parse(ctx context.Context) (err error) {
 
 	// Verify and store context.
 	if self.context = ctx; self.context == nil {
@@ -198,6 +205,7 @@ func (self *Config)  Parse(ctx context.Context) (err error) {
 		return
 	}
 	w = &wrapper{
+		self,
 		self.context,
 		self.Globals,
 		nil, nil,
@@ -222,6 +230,7 @@ func (self *Config)  Parse(ctx context.Context) (err error) {
 	for index, current := range self.chain {
 		if self.NoExecLastHandlerOnly || index == last {
 			w = &wrapper{
+				self,
 				self.context,
 				current.Options,
 				current,
@@ -246,11 +255,15 @@ func (self *Config) Reset() {
 // contextWrapper wraps the standard Context and Options to imlement
 // cmdline.Context.
 type wrapper struct {
+	config *Config
 	context.Context
 	Options
 	Command *Command
 	Parent  *Command
 }
+
+// GetConfig implements Context.GetConfig.
+func (self *wrapper) GetConfig() *Config { return self.config }
 
 // GetCommand implements Context.GetCommand.
 func (self *wrapper) GetCommand() *Command { return self.Command }

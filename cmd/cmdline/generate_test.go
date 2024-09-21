@@ -13,7 +13,7 @@ func TestGenerate(t *testing.T) {
 	}
 	t.Log("Working dir:", dir)
 
-	const tagName = "testTag"
+	const tagName = "cmdline"
 
 	var config = DefaultGenerateConfig()
 	config.Packages =   []string{"./..."}

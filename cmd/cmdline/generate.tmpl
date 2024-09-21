@@ -21,10 +21,10 @@ var ({{range $command := .Commands}}
 				LongName: "{{.LongName}}",
 				ShortName: "{{.ShortName}}",
 				Help: "{{.Help}}",
-				MappedValue: &{{$command.Name}}Var.{{.LongName}},
+				MappedValue: &{{$command.Name}}Var.{{.FieldPath}},
 			},{{end}}
 		},
-		Handler: cmdline.NopHandler,
+		Handler: handle{{.SourceStructType}},
 	}{{end}}
 )
 
@@ -33,9 +33,8 @@ func cmdlineConfig() *cmdline.Config {
 
 	var config = &cmdline.Config{
 		Arguments: os.Args[1:],
-		Commands: cmdline.Commands{
-			OptionsCmd,
-			ConfigCmd,
+		Commands: cmdline.Commands{ {{range .Commands}}
+			{{.Name}}Cmd,{{end}}
 		},
 	}
 
@@ -43,14 +42,18 @@ func cmdlineConfig() *cmdline.Config {
 		&cmdline.Command{
 			Name: "help",
 			Help: "Shows help.",
-			Handler: func(c cmdline.Context) error {
-				cmdline.PrintConfig(os.Stdout, config)
-				return nil
-			},
+			Handler: cmdline.HelpHandler,
+
 		},
 	)
 
 	return config
 }
+
+{{range .Commands}}
+// handle{{.SourceStructType}} is a handler for the {{.Name}}Cmd.
+func handle{{.SourceStructType}}(c cmdline.Context) error {
+	return nil
+}{{end}}
 
 

@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 )
 
 // Handler is a Command invocation callback prototype. It carries a Command
@@ -24,6 +25,12 @@ type Handler func(Context) error
 // It can be used as a placeholder to skip Command Handler implementation and
 // allow for the command chain execution to continue.
 var NopHandler = func(Context) error { return nil }
+
+// HelpHandler is a utility handler that prints the current configuration,
+var HelpHandler = func(c Context) error {
+	PrintConfig(os.Stdout, c.GetConfig())
+	return nil
+}
 
 // Context is passed to the Command handler that allows inspection of
 // Command's Options states. It wraps the standard context passed to Config.Parse
@@ -56,6 +63,9 @@ type Context interface {
 	// take no arguments return an empty string.
 	RawValues(string) RawValues
 
+	// GetConfig returns the config that is being used to parse.
+	GetConfig() *Config
+
 	// GetOptions returns this Commands' Options.
 	GetOptions() Options
 
@@ -69,31 +79,13 @@ type Context interface {
 	GetParentCommand() *Command
 }
 
-// RawValues is a helper alias for a slice of strings representing arguments
-// passed to an Option. It implements several utilities for retrieving values.
-type RawValues []string
-
-// Count returns number of items in self.
-func (self RawValues) Count() int { return len(self) }
-
-// IsEmpty returns true if RawValues are empty.
-func (self RawValues) IsEmpty() bool { return len(self) == 0 }
-
-// First returns the first value in self or an empty string if empty.
-func (self RawValues) First() string {
-	if len(self) > 0 {
-		return self[0]
-	}
-	return ""
-}
-
 // Command defines a command invocable by name.
 type Command struct {
 	// Name is the name of the Command by which it is invoked from arguments.
 	// Command name is required, must not be empty and must be unique in
 	// Commands.
 	Name string
-	
+
 	// Help is the short Command help text that should prefferably fit
 	// the width of a standard terminal.
 	Help string
@@ -130,6 +122,24 @@ type Command struct {
 // Commands are never sorted and the order in which they are declared is
 // important to the Print function which prints the Commands in the same order.
 type Commands []*Command
+
+// Register is a helper that registers a fully defined Command and returns self.
+func (self *Commands) Register(command *Command) Commands {
+	*self = append(*self, command)
+	return *self
+}
+
+// Handle is a helper that registers a new Command from arguments.
+// It returns the newly registered command.
+func (self *Commands) Handle(name, help string, h Handler) (c *Command) {
+	c = &Command{
+		Name:    name,
+		Help:    help,
+		Handler: h,
+	}
+	self.Register(c)
+	return
+}
 
 // Count returns the number of defined commands in self.
 func (self Commands) Count() int { return len(self) }
@@ -182,24 +192,6 @@ func walkCommands(c Commands, f func(c *Command) bool, executed, notexecuted boo
 			walkCommands(cmd.SubCommands, f, executed, notexecuted)
 		}
 	}
-}
-
-// Handle is a helper that registers a new Command from arguments.
-// It returns the newly registered command.
-func (self Commands) Handle(name, help string, h Handler) (c *Command) {
-	c = &Command{
-		Name:    name,
-		Help:    help,
-		Handler: h,
-	}
-	self.Register(c)
-	return
-}
-
-// Register is a helper that registers a fully defined Command and returns self.
-func (self Commands) Register(command *Command) Commands {
-	self = append(self, command)
-	return self
 }
 
 // parse parses self from config or returns an error.

@@ -10,48 +10,48 @@ import (
 )
 
 var (
-	OptionsVar = new(models.Options)
-	ConfigVar  = new(models.Config)
+	optionsVar = new(models.Options)
+	configVar  = new(models.Config)
 )
 
 var (
-	OptionsCmd = &cmdline.Command{
-		Name: "Options",
+	optionsCmd = &cmdline.Command{
+		Name: "options",
 		Help: "Defines a set of options.",
 		Options: []cmdline.Option{
-			&cmdline.Optional{
-				LongName:    "OutputDirectory",
+			&cmdline.Required{
+				LongName:    "outDir",
 				ShortName:   "",
-				Help:        "[Output directory.  OutputDirectory is the output directory.  This is a multiline comment.]",
-				MappedValue: &OptionsVar.OutputDirectory,
+				Help:        "Output directory.  OutputDirectory is the output directory.  This is a\nmultiline comment.",
+				MappedValue: &optionsVar.OutputDirectory,
 			},
 		},
-		Handler: cmdline.NopHandler,
+		Handler: handleOptions,
 	}
-	ConfigCmd = &cmdline.Command{
-		Name: "Config",
+	configCmd = &cmdline.Command{
+		Name: "config",
 		Help: "",
 		Options: []cmdline.Option{
 			&cmdline.Optional{
 				LongName:    "Name",
 				ShortName:   "",
-				Help:        "[]",
-				MappedValue: &ConfigVar.Name,
+				Help:        "Name is the name.",
+				MappedValue: &configVar.Name,
 			},
-			&cmdline.Optional{
+			&cmdline.Required{
 				LongName:    "Age",
 				ShortName:   "",
-				Help:        "[]",
-				MappedValue: &ConfigVar.Age,
+				Help:        "Age is the age.",
+				MappedValue: &configVar.Age,
 			},
 			&cmdline.Boolean{
 				LongName:    "Subscribed",
 				ShortName:   "",
-				Help:        "[]",
-				MappedValue: &ConfigVar.Subscribed,
+				Help:        "Subscribed is usually true.",
+				MappedValue: &configVar.Subscribed,
 			},
 		},
-		Handler: cmdline.NopHandler,
+		Handler: handleConfig,
 	}
 )
 
@@ -61,21 +61,28 @@ func cmdlineConfig() *cmdline.Config {
 	var config = &cmdline.Config{
 		Arguments: os.Args[1:],
 		Commands: cmdline.Commands{
-			OptionsCmd,
-			ConfigCmd,
+			optionsCmd,
+			configCmd,
 		},
 	}
 
 	config.Commands.Register(
 		&cmdline.Command{
-			Name: "help",
-			Help: "Shows help.",
-			Handler: func(c cmdline.Context) error {
-				cmdline.PrintConfig(os.Stdout, config)
-				return nil
-			},
+			Name:    "help",
+			Help:    "Shows help.",
+			Handler: cmdline.HelpHandler,
 		},
 	)
 
 	return config
+}
+
+// handleOptions is a handler for the optionsCmd.
+func handleOptions(c cmdline.Context) error {
+	return nil
+}
+
+// handleConfig is a handler for the configCmd.
+func handleConfig(c cmdline.Context) error {
+	return nil
 }

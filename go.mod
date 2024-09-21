@@ -1,8 +1,6 @@
 module github.com/vedranvuk/cmdline
 
-go 1.22.5
-
-toolchain go1.23.1
+go 1.23.1
 
 require (
 	github.com/vedranvuk/bast v0.0.0-20240920143658-a78de316ff32
