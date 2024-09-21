@@ -105,6 +105,7 @@ func (self Kind) String() string {
 
 // Option defines an option.
 type Option struct {
+
 	// LongName is the long, more descriptive option name.
 	//
 	// It must contain no spaces and must be unique in Options as it is the
@@ -115,30 +116,38 @@ type Option struct {
 
 	// ShortName is the option short name.
 	//
-	// ShortName is the short option name consisting of a single alphanumeric.
-	// It is optional and if not empty must be unique in all Options ShortName
-	// properties.
+	// ShortName consists of a single alphanumeric. It is optional and if not
+	// empty must be unique in all Options ShortName properties.
+	//
+	// An argument with a short prefix is matched against this property.
 	ShortName string
 
 	// Help is the option help text.
+	//
 	// It should be a short, single line description of the option.
 	Help string
 
-	// IsParsed indicates if the Option was parsed from arguments. For Repeated
-	// Option it indicates that the Option was parsed at least once.
+	// IsParsed indicates if the Option was parsed from arguments. 
+	//
+	// For Repeated Options it indicates that the Option was parsed at least 
+	// once.
 	IsParsed bool
 
 	// Kind is the kind of option which determines how the Option parses
-	// its arguments. See [Kind] for details.
+	// its arguments. 
+	//
+	// See [Kind] for details.
 	Kind
 
 	// Values contains any string values passed to the option as arguments.
+	//
 	// How Values is parsed depends on [Option.Kind].
 	Values
 
-	// Var is an optional variable that will be set from Option argument(s).
+	// Var is an optional pointer to a variable that will be set from Option 
+	// argument(s).
 	//
-	// Boolean Option takes a *bool which will be set true if Option is parsed.
+	// Only basic types are supported and a slice of string.
 	Var any
 }
 

@@ -29,6 +29,12 @@ const (
 // one of the Parse methods.
 type Config struct {
 
+	// Usage is a function to call when no arguments are given to Parse.
+	//
+	// If unset, invokes the built in [Config.PrintUsage]. Parse functions will
+	// still return ErrNoArgs.
+	Usage func()
+
 	// Arguments are the arguments to parse. This is usually set to os.Args[1:].
 	Arguments Arguments
 
@@ -50,10 +56,6 @@ type Config struct {
 
 	// Commands is the root command set.
 	Commands Commands
-	// Usage is a function to call when no arguments are given to Parse.
-	// If unset, invokes the built in Usage func.
-	// Parse functions will still return ErrNoArgs.
-	Usage func()
 
 	// LongPrefix is the long Option prefix to use. It is optional and is
 	// defaulted to DefaultLongPrefix by Parse() if left empty.
@@ -253,7 +255,6 @@ func (self *Config) Reset() {
 }
 
 // wrapper implements [Context].
-//
 type wrapper struct {
 	context.Context
 	config  *Config

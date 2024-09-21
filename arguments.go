@@ -11,7 +11,7 @@ import "strings"
 type Arguments []string
 
 // Kind returns the current argument kind.
-func (self Arguments) Kind(config *Config) (kind ArgumentKind) {
+func (self Arguments) Kind(config *Config) (kind Argument) {
 	if self.Eof() {
 		return NoArgument
 	}
@@ -26,12 +26,12 @@ func (self Arguments) Kind(config *Config) (kind ArgumentKind) {
 	return
 }
 
-// ArgumentKind defines the kind of argument being parsed.
-type ArgumentKind int
+// Argument defines the kind of argument being parsed.
+type Argument int
 
 const (
 	// NoArgument indicates no argument. It's returned if Arguments are empty.
-	NoArgument ArgumentKind = iota
+	NoArgument Argument = iota
 	// LongArgument indicates a token with a long option prefix.
 	LongArgument
 	// ShortArgument indicates a token with a short option prefix.
