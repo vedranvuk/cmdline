@@ -54,6 +54,13 @@ var (
 				Var:       &configVar.Subscribed,
 				Kind:      cmdline.Boolean,
 			},
+			&cmdline.Option{
+				LongName:  "EMail",
+				ShortName: "",
+				Help:      "EMail is the email address.",
+				Var:       &configVar.Sub.EMail,
+				Kind:      cmdline.Optional,
+			},
 		},
 		Handler: handleConfig,
 	}

@@ -226,15 +226,16 @@ type (
 	}
 )
 
-func (self Command) Signature() string {
+func (self Command) SourceStructSelector() string {
 	return self.SourceStructPackageName + "." + self.SourceStructType
 }
 
-// Generate generates the go source code containing cmdline.Command definitions
-// that modify
+// Generate generates the go source code containing cmdline.Command definitions.
 //
 // It skips the structs that have no cmdline tags. Structs that are to be used
 // as generate source must have the NameTag at minimum.
+//
+// The struct has to have at least one cmdline tag to be parsed.
 func (self GenerateConfig) Generate() (err error) {
 
 	if self.TagKey == "" {
@@ -337,12 +338,14 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 		path += f.Type
 	}
 
-	var imp = f.ImportSpecBySelectorExpr(f.Type)
-	if imp != nil {
-		var _, name, valid = strings.Cut(f.Type, ".")
-		if valid {
+	if s := f.GetFile().Struct(f.Type); s != nil {
+		return self.parseStruct(s, path, c)
+	}
+
+	if imp := f.ImportSpecBySelectorExpr(f.Type); imp != nil {
+		if _, name, valid := strings.Cut(f.Type, "."); valid {
 			if s := self.Model.Bast.PkgStruct(imp.Path, name); s != nil {
-				self.Model.ImportMap[imp.Path] = ""
+				self.Model.ImportMap[imp.Path] = imp.Name
 				return self.parseStruct(s, path, c)
 			}
 		}

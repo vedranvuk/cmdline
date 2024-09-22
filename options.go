@@ -616,6 +616,8 @@ func convertToVar(v any, raw Values) (err error) {
 		*p = append(*p, raw...)
 	case *time.Duration:
 		*p, err = time.ParseDuration(raw.First())
+	case *time.Time:
+		*p, err = time.Parse(time.RFC3339, raw.First())
 	default:
 		if v, ok := p.(Value); ok {
 			err = v.Set(raw)

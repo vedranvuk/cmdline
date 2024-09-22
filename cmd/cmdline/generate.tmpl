@@ -9,7 +9,7 @@ import (
 )
 
 var ({{range .Commands}}
-	{{.Name}}Var = new({{.Signature}}){{end}}
+	{{.Name}}Var = new({{.SourceStructSelector}}){{end}}
 )
 
 var ({{range $command := .Commands}}
