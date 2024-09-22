@@ -68,6 +68,12 @@ type GenerateConfig struct {
 	// HelpFromDocs if true adds option help from srtuct field docs.
 	HelpFromDocs bool `cmdline:"name=help-from-docs" json:"helpFromDocs,omitempty"`
 
+	// ErrorOnUnsupportedField if true throws an error during parse if an
+	// unsupported field was found in a source struct.
+	//
+	// Default: false
+	ErrorOnUnsupportedField bool `cmdline:"name=error-on-unsupported-field" json:"errorOnUnsupportedField,omitempty"`
+
 	// Print prints the output to stdout.
 	//
 	// Default: true
@@ -94,6 +100,7 @@ func DefaultGenerateConfig() (c *GenerateConfig) {
 	c.HelpFromDocs = true
 	c.Print = true
 	c.NoWrite = false
+	c.ErrorOnUnsupportedField = false
 	c.BastConfig = bast.DefaultConfig()
 	c.BastConfig.HaltOnTypeCheckErrors = false
 	c.Model.ImportMap = make(ImportMap)
@@ -193,7 +200,7 @@ type (
 		SourceStructPackageName string
 
 		// Options to generate.
-		Options []Option
+		Options []*Option
 	}
 
 	// Option defines a cmdline.Option to generate in a command. It is generated
@@ -296,7 +303,7 @@ func (self GenerateConfig) Generate() (err error) {
 			required = tag.Exists(RequiredKey)
 		)
 		if optional && required {
-			err = errors.New("optional and required tag keys are mutually exclusive")
+			err = errors.New("optional and required keys are mutually exclusive")
 			return
 		}
 
@@ -324,6 +331,8 @@ func (self *GenerateConfig) parseStruct(s *bast.Struct, path string, c *Command)
 			return
 		}
 	}
+
+	generateShortNames(c)
 
 	return nil
 }
@@ -393,7 +402,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 		optional = true
 	}
 
-	var opt = Option{
+	var opt = &Option{
 		LongName:  name,
 		ShortName: "",
 		Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
@@ -414,6 +423,18 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 			opt.Kind = cmdline.Required
 		}
 	case "":
+		if f.Type == "time.Time" {
+			if optional {
+				opt.Kind = cmdline.Optional
+			}
+			if required {
+				opt.Kind = cmdline.Required
+			}
+			break
+		}
+		if self.ErrorOnUnsupportedField {
+			return errors.New("unsupported field type: " + f.Type)
+		}
 		log.Printf("Cannot determine basic type for field %s, skipping.\n", f.Type)
 		return nil
 	default:
@@ -537,6 +558,38 @@ func (self *GenerateConfig) makeHelp(tag, doc []string) string {
 	}
 	out = strutils.WrapText(strings.Join(out, " "), col, false)
 	return strings.Join(out, "\\n")
+}
+
+// generateShortNames generates short Option names.
+// It does it by setting the lowercase first letter of option name as the short 
+// option name. It then scans previously defined short names and if a colision 
+// is detected it tries next letter in the long name until colision has been 
+// resolved. If colision was not resolved shortname will be empty.
+func generateShortNames(c *Command) {
+	for idx, option := range c.Options {
+		var name = strings.ToLower(option.LongName)
+	GenShort:
+		for _, r := range name {
+			option.ShortName = string(r)
+			for i := 0; i < idx; i++ {
+				if c.Options[i].ShortName == option.ShortName {
+					continue GenShort
+				}
+			}
+			break GenShort
+		}
+	}
+	for _, option := range c.Options {
+		var n = option.ShortName
+		for _, other := range c.Options {
+			if option == other {
+				continue
+			}
+			if n == other.ShortName {
+				other.ShortName = ""
+			}
+		}
+	}
 }
 
 // LazyStructCopy copies values from src fields that have a coresponding field

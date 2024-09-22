@@ -111,7 +111,11 @@ func h(config *Config, longname, shortname string, value bool) (result string) {
 		result = fmt.Sprintf("\t%s%s", config.LongPrefix, longname)
 	}
 	if value {
-		result = result + " <value>"
+		if config.NoAssignment {
+			result = result + " <value>"
+		} else {
+			result = result + "=<value>"
+		}
 	}
 	return
 }

@@ -6,9 +6,6 @@ import "time"
 // cmdline:"name=options"
 // cmdline:"help=Defines a set of options."
 type Options struct {
-	// OutputDirectory is the output directory.
-	//
-	// This is a multiline comment.
 	//cmdline:"help=Output directory."
 	OutputDirectory string `cmdline:"name=outDir,required"`
 }

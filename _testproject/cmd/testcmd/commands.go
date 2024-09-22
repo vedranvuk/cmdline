@@ -21,8 +21,8 @@ var (
 		Options: cmdline.Options{
 			&cmdline.Option{
 				LongName:  "outDir",
-				ShortName: "",
-				Help:      "Output directory.  OutputDirectory is the output directory.  This is a\nmultiline comment.",
+				ShortName: "o",
+				Help:      "Output directory. ",
 				Var:       &optionsVar.OutputDirectory,
 				Kind:      cmdline.Required,
 			},
@@ -35,28 +35,35 @@ var (
 		Options: cmdline.Options{
 			&cmdline.Option{
 				LongName:  "Name",
-				ShortName: "",
+				ShortName: "n",
 				Help:      "Name is the name.",
 				Var:       &configVar.Name,
 				Kind:      cmdline.Optional,
 			},
 			&cmdline.Option{
 				LongName:  "Age",
-				ShortName: "",
+				ShortName: "a",
 				Help:      "Age is the age.",
 				Var:       &configVar.Age,
 				Kind:      cmdline.Required,
 			},
 			&cmdline.Option{
 				LongName:  "Subscribed",
-				ShortName: "",
+				ShortName: "s",
 				Help:      "Subscribed is usually true.",
 				Var:       &configVar.Subscribed,
 				Kind:      cmdline.Boolean,
 			},
 			&cmdline.Option{
+				LongName:  "DOB",
+				ShortName: "d",
+				Help:      "DOB is the darte of birth.",
+				Var:       &configVar.Sub.DOB,
+				Kind:      cmdline.Optional,
+			},
+			&cmdline.Option{
 				LongName:  "EMail",
-				ShortName: "",
+				ShortName: "e",
 				Help:      "EMail is the email address.",
 				Var:       &configVar.Sub.EMail,
 				Kind:      cmdline.Optional,
