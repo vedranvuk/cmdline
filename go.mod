@@ -3,7 +3,7 @@ module github.com/vedranvuk/cmdline
 go 1.23.1
 
 require (
-	github.com/vedranvuk/bast v0.0.0-20240922062917-534825b072bd
+	github.com/vedranvuk/bast v0.0.0-20240923165833-60c78d6a7b48
 	github.com/vedranvuk/strutils v0.0.0-20240920211532-921435b35fcf
 )
 

@@ -7,6 +7,7 @@ package cmdline
 import (
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -14,14 +15,14 @@ import (
 func PrintConfig(w io.Writer, config *Config) {
 	var wr = newTabWriter(w)
 	if config.Globals.Count() > 0 {
-		io.WriteString(wr, fmt.Sprintf("Global options:\n"))
+		io.WriteString(wr, fmt.Sprintf("Global options:\n\n"))
 		PrintOptions(wr, config, config.Globals, 1)
+		io.WriteString(w, "\n")
 	}
 	if config.Commands.Count() > 0 {
-		io.WriteString(wr, "Commands:\n")
+		io.WriteString(wr, "Commands:\n\n")
 		PrintCommands(wr, config, config.Commands, 1)
 	}
-	wr.Flush()
 }
 
 // PrintOptions prints commands to w idented with ident tabs using config.
@@ -33,11 +34,12 @@ func PrintCommands(w io.Writer, config *Config, commands Commands, indent int) {
 
 // PrintOption prints command to w idented with ident tabs using config.
 func PrintCommand(w io.Writer, config *Config, command *Command, indent int) {
-	io.WriteString(w, getIndent(indent))
+	io.WriteString(w, indentString(indent))
 	io.WriteString(w, fmt.Sprintf("%s\t%s\n", command.Name, command.Help))
 	if command.Options.Count() > 0 {
 		PrintOptions(w, config, command.Options, indent+1)
 	}
+	io.WriteString(w, "\n")
 	if command.SubCommands.Count() > 0 {
 		PrintCommands(w, config, command.SubCommands, indent+1)
 	}
@@ -87,16 +89,16 @@ func PrintOptions(w io.Writer, config *Config, options Options, indent int) {
 
 // PrintOption prints option to w idented with ident tabs using config.
 func PrintOption(w io.Writer, config *Config, option *Option, indent int) {
-	io.WriteString(w, getIndent(indent))
+	io.WriteString(w, indentString(indent))
 	switch option.Kind {
 	case Boolean:
-		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, option.LongName, option.ShortName, false), option.Help))
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", optionString(config, option.LongName, option.ShortName, false), option.Help))
 	case Optional:
-		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, option.LongName, option.ShortName, true), option.Help))
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", optionString(config, option.LongName, option.ShortName, true), option.Help))
 	case Required:
-		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, option.LongName, option.ShortName, true), option.Help))
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", optionString(config, option.LongName, option.ShortName, true), option.Help))
 	case Repeated:
-		io.WriteString(w, fmt.Sprintf("%s\t%s\n", h(config, option.LongName, option.ShortName, true), option.Help))
+		io.WriteString(w, fmt.Sprintf("%s\t%s\n", optionString(config, option.LongName, option.ShortName, true), option.Help))
 	case Indexed:
 		io.WriteString(w, fmt.Sprintf("\t<%s>\t%s\n", option.LongName, option.Help))
 	case Variadic:
@@ -104,14 +106,15 @@ func PrintOption(w io.Writer, config *Config, option *Option, indent int) {
 	}
 }
 
-func h(config *Config, longname, shortname string, value bool) (result string) {
+// optionString returns the option string representation for pretty printing.
+func optionString(config *Config, longname, shortname string, value bool) (result string) {
 	if shortname != "" {
 		result = fmt.Sprintf("%s%s\t%s%s", config.ShortPrefix, shortname, config.LongPrefix, longname)
 	} else {
 		result = fmt.Sprintf("\t%s%s", config.LongPrefix, longname)
 	}
 	if value {
-		if config.NoAssignment {
+		if config.UseAssignment {
 			result = result + " <value>"
 		} else {
 			result = result + "=<value>"
@@ -120,13 +123,8 @@ func h(config *Config, longname, shortname string, value bool) (result string) {
 	return
 }
 
-// getIndent returns depth number of tabs used for indentation.
-func getIndent(depth int) (result string) {
-	for i := 0; i < depth; i++ {
-		result += "  "
-	}
-	return
-}
+// indentString returns string of depth times two spaces used for indentation.
+func indentString(depth int) (result string) { return strings.Repeat("  ", depth) }
 
 func newTabWriter(output io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(output, 2, 2, 2, 32, 0)

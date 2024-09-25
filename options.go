@@ -4,16 +4,6 @@
 
 package cmdline
 
-import (
-	"errors"
-	"fmt"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/vedranvuk/strutils"
-)
-
 // Kind specifies the kind of an Option.
 //
 // It defines the Option behaviour and how it parses its arguments.
@@ -153,6 +143,12 @@ type Option struct {
 	Var any
 }
 
+// Reset resets the Option to initial state. It does not modify linked variable.
+func (self *Option) Reset() {
+	self.IsParsed = true
+	clear(self.Values)
+}
+
 // Values is a helper alias for a slice of strings representing arguments
 // passed to an Option. It implements several utilities for retrieving values.
 type Values []string
@@ -202,61 +198,97 @@ func (self *Options) Register(option *Option) *Options {
 
 // Boolean registers a new Boolean option in self and returns self.
 func (self *Options) Boolean(longName, shortName, help string) *Options {
+	return self.BooleanVar(longName, shortName, help, nil)
+}
+
+// Optional registers a new optional option in self and returns self.
+func (self *Options) Optional(longName, shortName, help string) *Options {
+	return self.OptionalVar(longName, shortName, help, nil)
+}
+
+// Required registers a new required option in self and returns self.
+func (self *Options) Required(longName, shortName, help string) *Options {
+	return self.RequiredVar(longName, shortName, help, nil)
+}
+
+// Repeated registers a new repeated option in self and returns self.
+func (self *Options) Repeated(longName, shortName, help string) *Options {
+	return self.RepeatedVar(longName, shortName, help, nil)
+}
+
+// Indexed registers a new indexed option in self and returns self.
+func (self *Options) Indexed(name, help string) *Options {
+	return self.IndexedVar(name, help, nil)
+}
+
+// Variadic registers a new variadic option in self and returns self.
+func (self *Options) Variadic(name, help string) *Options {
+	return self.VariadicVar(name, help, nil)
+}
+
+// Boolean registers a new Boolean option in self and returns self.
+func (self *Options) BooleanVar(longName, shortName, help string, v any) *Options {
 	return self.Register(&Option{
 		LongName:  longName,
 		ShortName: shortName,
 		Help:      help,
 		Kind:      Boolean,
+		Var:       v,
 	})
 }
 
 // Optional registers a new optional option in self and returns self.
-func (self *Options) Optional(longName, shortName, help string) *Options {
+func (self *Options) OptionalVar(longName, shortName, help string, v any) *Options {
 	return self.Register(&Option{
 		LongName:  longName,
 		ShortName: shortName,
 		Help:      help,
 		Kind:      Optional,
+		Var:       v,
 	})
 }
 
 // Required registers a new required option in self and returns self.
-func (self *Options) Required(longName, shortName, help string) *Options {
+func (self *Options) RequiredVar(longName, shortName, help string, v any) *Options {
 	return self.Register(&Option{
 		LongName:  longName,
 		ShortName: shortName,
 		Help:      help,
 		Kind:      Required,
+		Var:       v,
 	})
 }
 
 // Repeated registers a new repeated option in self and returns self.
-func (self *Options) Repeated(longName, shortName, help string) *Options {
+func (self *Options) RepeatedVar(longName, shortName, help string, v any) *Options {
 	return self.Register(&Option{
 		LongName:  longName,
 		ShortName: shortName,
 		Help:      help,
 		Kind:      Repeated,
+		Var:       v,
 	})
 }
 
 // Indexed registers a new indexed option in self and returns self.
-func (self *Options) Indexed(name, help string) *Options {
+func (self *Options) IndexedVar(name, help string, v any) *Options {
 	return self.Register(&Option{
 		LongName:  name,
 		ShortName: "",
 		Help:      help,
 		Kind:      Indexed,
+		Var:       v,
 	})
 }
 
 // Variadic registers a new variadic option in self and returns self.
-func (self *Options) Variadic(name, help string) *Options {
+func (self *Options) VariadicVar(name, help string, v any) *Options {
 	return self.Register(&Option{
 		LongName:  name,
 		ShortName: "",
 		Help:      help,
 		Kind:      Variadic,
+		Var:       v,
 	})
 }
 
@@ -300,330 +332,10 @@ func (self Options) Values(longName string) Values {
 	return nil
 }
 
-// parse parses self from args or returns an error.
-func (self Options) parse(config *Config) (err error) {
-
-	if self.Count() == 0 {
-		return nil
-	}
-
-	var (
-		opt        *Option
-		key, val   string
-		assignment bool
-	)
-
-	for !config.Arguments.Eof() {
-
-		// Parse key and val.
-		if config.NoAssignment {
-			key = strings.TrimSpace(config.Arguments.Text(config))
-			val = ""
-			assignment = false
-		} else {
-			key, val, assignment = strings.Cut(config.Arguments.Text(config), "=")
-			key = strings.TrimSpace(key)
-			if assignment && val != "" {
-				val, _ = strutils.UnquoteDouble(strings.TrimSpace(val))
-			}
-		}
-
-		// Try to detect the option by argument kind.
-		// If not prefixed see if theres defined and yet unparsed indexed.
-		// If prefixed see if its Boolean, Optional, Required or Repeated.
-		switch kind := config.Arguments.Kind(config); kind {
-		case TextArgument:
-			if config.NoAssignment && opt != nil {
-				switch opt.Kind {
-				case Optional, Required, Repeated:
-				default:
-					return fmt.Errorf("option '%s' requires a value", opt.LongName)
-
-				}
-			} else {
-				if o := self.getFirstUnparsedIndexed(); o != nil {
-					opt = o
-				}
-			}
-		case LongArgument:
-			if !config.NoIndexedFirst {
-				if fui := self.getFirstUnparsedIndexed(); fui != nil {
-					return fmt.Errorf("indexed argument '%s' not parsed", fui.LongName)
-				}
-			}
-
-			if config.NoAssignment && opt != nil {
-				return fmt.Errorf("option '%s' requires a value", opt.LongName)
-			}
-
-			if opt = self.FindLong(key); opt == nil {
-				return fmt.Errorf("unknown option '%s'", key)
-			}
-
-			switch opt.Kind {
-			case Boolean:
-			case Optional, Required, Repeated:
-				if config.NoAssignment {
-					config.Arguments.Next()
-					continue
-				}
-			default:
-				return fmt.Errorf("option '%s' exists, but is not named", opt.LongName)
-
-			}
-		case ShortArgument:
-			if !config.NoIndexedFirst {
-				if fui := self.getFirstUnparsedIndexed(); fui != nil {
-					return fmt.Errorf("indexed argument '%s' not parsed", fui.LongName)
-				}
-			}
-
-			if config.NoAssignment && opt != nil {
-				return fmt.Errorf("option '%s' requires a value", opt.LongName)
-			}
-
-			if opt = self.FindShort(key); opt == nil {
-				return fmt.Errorf("unknown option '%s'", key)
-			}
-
-			switch opt.Kind {
-			case Boolean:
-			case Optional, Required, Repeated:
-				if config.NoAssignment {
-					config.Arguments.Next()
-					continue
-				}
-			default:
-				return fmt.Errorf("option '%s' exists, but is not named", opt.LongName)
-
-			}
-		}
-
-		// No options matched so far, see if there's a Variadic.
-		if opt == nil {
-			for _, v := range self {
-				if v.Kind == Variadic {
-					opt = v
-					break
-				}
-			}
-			if opt == nil {
-				break
-			}
-		}
-
-		// Fail if non *Repeatable option and parsed multiple times.
-		if opt.Kind != Repeated {
-			if opt.IsParsed {
-				return fmt.Errorf("option %s specified multiple times", opt.LongName)
-			}
-		}
-
-		// Sets the Option as parsed and sets raw value(s).
-		switch opt.Kind {
-		case Boolean:
-			if config.NoAssignment {
-				opt.IsParsed = true
-			} else {
-				if assignment {
-					return fmt.Errorf("option '%s' cannot be assigned a value", opt.LongName)
-				}
-				opt.IsParsed = true
-			}
-		case Optional:
-			if config.NoAssignment {
-				opt.Values = append(opt.Values, key)
-				opt.IsParsed = true
-			} else {
-				if !assignment || val == "" {
-					return fmt.Errorf("option '%s' requires a value", opt.LongName)
-				}
-				opt.Values = append(opt.Values, val)
-				opt.IsParsed = true
-			}
-		case Required:
-			if config.NoAssignment {
-				opt.Values = append(opt.Values, key)
-				opt.IsParsed = true
-			} else {
-				if !assignment || val == "" {
-					return fmt.Errorf("option '%s' requires a value", opt.LongName)
-				}
-				opt.Values = append(opt.Values, val)
-				opt.IsParsed = true
-			}
-		case Repeated:
-			if config.NoAssignment {
-				opt.Values = append(opt.Values, key)
-				opt.IsParsed = true
-			} else {
-				if !assignment || val == "" {
-					return fmt.Errorf("option '%s' requires a value", opt.LongName)
-				}
-				opt.Values = append(opt.Values, val)
-				opt.IsParsed = true
-			}
-		case Indexed:
-			if config.NoAssignment {
-				opt.Values = append(opt.Values, key)
-				opt.IsParsed = true
-			} else {
-				opt.Values = append(opt.Values, key)
-				opt.IsParsed = true
-			}
-		case Variadic:
-			opt.Values = append(opt.Values, config.Arguments...)
-			opt.IsParsed = true
-			config.Arguments.End()
-		}
-
-		if err = self.setVar(opt); err != nil {
-			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.Var, opt.LongName, err)
-		}
-
-		opt = nil
-		config.Arguments.Next()
-	}
-
-	if !config.NoFailOnUnparsedRequired {
-		for _, opt = range self {
-			if !opt.IsParsed {
-				if opt.Kind == Required {
-					return fmt.Errorf("required option '%s' not parsed", opt.LongName)
-				}
-				if opt.Kind == Indexed {
-					return fmt.Errorf("indexed option '%s' not parsed", opt.LongName)
-				}
-			}
-		}
-	}
-
-	return
-}
-
-// getFirstUnparsedIndexed returns the first Indexed Option that is not parsed.
-// Returns nil if none found.
-func (self Options) getFirstUnparsedIndexed() *Option {
+// Reset resets all options to initial parse state. It does not modify the
+// linked variable.
+func (self Options) Reset() {
 	for _, option := range self {
-		if option.Kind == Indexed {
-			if !option.IsParsed {
-				return option
-			}
-		}
+		option.Reset()
 	}
-	return nil
-}
-
-// setVar converts option.State.RawValue to option.MappedValue if option's
-// raw value is not nil.
-//
-// Returns nil on success of no value mapped.. Returns a non nil error on
-// failed conversion only.
-//
-// option.MappedValue must be a pointer to a supported type or any type that
-// supports conversion from a string by implementing the Value interface.
-//
-// Supported types are:
-// *bool, *string, *float32, *float64,
-// *int, *int8, *int16, *1nt32, *int64,
-// *uint, *uint8, *uint16, *u1nt32, *uint64
-// *time.Duration, *[]string, and any type supporting Value interface.
-//
-// If an unsupported type was set as option.MappedValue Parse will return a
-// conversion error.
-func (self Options) setVar(option *Option) (err error) {
-
-	if option.Var == nil {
-		return nil
-	}
-
-	if option.Kind != Boolean {
-		if option.Values.Count() < 1 {
-			return nil
-		}
-	}
-
-	switch option.Kind {
-	case Boolean, Optional, Required, Indexed, Variadic:
-		return convertToVar(option.Var, option.Values)
-	case Repeated:
-		return convertToVar(option.Var, option.Values[len(option.Values)-1:])
-	default:
-		return errors.New("invalid OptionKind")
-	}
-}
-
-// convertToVar sets v which must be a pointer to a supported type from raw
-// or returns an error if conversion error occured.
-func convertToVar(v any, raw Values) (err error) {
-	switch p := v.(type) {
-	case *bool:
-		*p = true
-	case *string:
-		*p = raw.First()
-	case *int:
-		var v int64
-		if v, err = strconv.ParseInt(raw.First(), 10, 0); err == nil {
-			*p = int(v)
-		}
-	case *uint:
-		var v uint64
-		if v, err = strconv.ParseUint(raw.First(), 10, 0); err == nil {
-			*p = uint(v)
-		}
-	case *int8:
-		var v int64
-		if v, err = strconv.ParseInt(raw.First(), 10, 8); err == nil {
-			*p = int8(v)
-		}
-	case *uint8:
-		var v uint64
-		if v, err = strconv.ParseUint(raw.First(), 10, 8); err == nil {
-			*p = uint8(v)
-		}
-	case *int16:
-		var v int64
-		if v, err = strconv.ParseInt(raw.First(), 10, 16); err == nil {
-			*p = int16(v)
-		}
-	case *uint16:
-		var v uint64
-		if v, err = strconv.ParseUint(raw.First(), 10, 16); err == nil {
-			*p = uint16(v)
-		}
-	case *int32:
-		var v int64
-		if v, err = strconv.ParseInt(raw.First(), 10, 32); err == nil {
-			*p = int32(v)
-		}
-	case *uint32:
-		var v uint64
-		if v, err = strconv.ParseUint(raw.First(), 10, 32); err == nil {
-			*p = uint32(v)
-		}
-	case *int64:
-		*p, err = strconv.ParseInt(raw.First(), 10, 64)
-	case *uint64:
-		*p, err = strconv.ParseUint(raw.First(), 10, 64)
-	case *float32:
-		var v float64
-		if v, err = strconv.ParseFloat(raw.First(), 64); err == nil {
-			*p = float32(v)
-		}
-	case *float64:
-		*p, err = strconv.ParseFloat(raw.First(), 64)
-	case *[]string:
-		*p = append(*p, raw...)
-	case *time.Duration:
-		*p, err = time.ParseDuration(raw.First())
-	case *time.Time:
-		*p, err = time.Parse(time.RFC3339, raw.First())
-	default:
-		if v, ok := p.(Value); ok {
-			err = v.Set(raw)
-		} else {
-			return errors.New("unsupported mapped value")
-		}
-	}
-	return
 }

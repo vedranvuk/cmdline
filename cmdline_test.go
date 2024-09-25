@@ -2,7 +2,6 @@ package cmdline
 
 import (
 	"errors"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -39,7 +38,7 @@ func TestContext(t *testing.T) {
 
 func TestRequireSubCommandExecution(t *testing.T) {
 	if err := Parse(&Config{
-		Arguments: []string{"one"},
+		Args: []string{"one"},
 		Commands: Commands{
 			{
 				Name:                "one",
@@ -62,7 +61,7 @@ func TestLastInChain(t *testing.T) {
 	var e = errors.New("e")
 
 	if err := Parse(&Config{
-		Arguments: []string{"one", "two", "three"},
+		Args: []string{"one", "two", "three"},
 		Commands: Commands{
 			{
 				Name:    "one",
@@ -92,7 +91,7 @@ func TestMidInChain(t *testing.T) {
 	var e = errors.New("e")
 
 	if err := Parse(&Config{
-		Arguments: []string{"one", "two"},
+		Args: []string{"one", "two"},
 		Commands: Commands{
 			{
 				Name:    "one",
@@ -118,7 +117,7 @@ func TestMidInChain(t *testing.T) {
 	}
 }
 
-func TestOptionsParsing(t *testing.T) {
+func TestOptionsParsingAssign(t *testing.T) {
 
 	var (
 		boolean  = false
@@ -130,8 +129,9 @@ func TestOptionsParsing(t *testing.T) {
 	)
 
 	if err := Parse(&Config{
-		Arguments:      []string{"-b", "--optional=\"opt\"", "-r=42", "--repeated=1", "-p=2", "idxd", "one", "two", "three"},
-		NoIndexedFirst: true,
+		Args:          []string{"-b", "--optional=\"opt\"", "-r=42", "--repeated=1", "-p=2", "idxd", "one", "two", "three"},
+		IndexedFirst:  false,
+		UseAssignment: true,
 		Globals: Options{
 			&Option{
 				LongName:  "boolean",
@@ -203,9 +203,8 @@ func TestOptionsParsingNoAssign(t *testing.T) {
 	)
 
 	if err := Parse(&Config{
-		Arguments:      []string{"-b", "--optional", "opt", "-r", "42", "--repeated", "1", "-p", "2", "idxd", "one", "two", "three"},
-		NoIndexedFirst: true,
-		NoAssignment:   true,
+		Args:         []string{"-b", "--optional", "opt", "-r", "42", "--repeated", "1", "-p", "2", "idxd", "one", "two", "three"},
+		IndexedFirst: false,
 		Globals: Options{
 			&Option{
 				LongName:  "boolean",
@@ -286,7 +285,8 @@ func TestMappedValues(t *testing.T) {
 	)
 
 	if err := Parse(&Config{
-		Arguments: []string{
+		UseAssignment: true,
+		Args: []string{
 			"--bool=true",
 			"--int=2",
 			"--int8=4",
@@ -448,7 +448,8 @@ func TestCustomMappedType(t *testing.T) {
 	var v = new(Custom)
 
 	if err := Parse(&Config{
-		Arguments: []string{"--custom=42"},
+		UseAssignment: true,
+		Args:          []string{"--custom=42"},
 		Globals: Options{
 			&Option{
 				LongName: "custom",
@@ -461,250 +462,92 @@ func TestCustomMappedType(t *testing.T) {
 	}
 }
 
-func TestPrint(t *testing.T) {
-	var config = &Config{
-		LongPrefix:  DefaultLongPrefix,
-		ShortPrefix: DefaultShortPrefix,
-		Globals: Options{
-			&Option{
-				LongName:  "boolean",
-				ShortName: "b",
-				Help:      "A Boolean Option.",
-				Kind:      Boolean,
-			},
-			&Option{
-				LongName:  "optional",
-				ShortName: "o",
-				Help:      "An Optional Option.",
-				Kind:      Optional,
-			},
-			&Option{
-				LongName:  "required",
-				ShortName: "r",
-				Help:      "A Required Option.",
-				Kind:      Required,
-			},
-			&Option{
-				LongName: "indexed",
-				Help:     "An Indexed Option.",
-				Kind:     Indexed,
-			},
-			&Option{
-				LongName:  "repeated",
-				ShortName: "p",
-				Help:      "A Repeated Option.",
-				Kind:      Repeated,
-			},
-			&Option{
-				LongName: "variadic",
-				Help:     "A Variadic Option.",
-				Kind:     Variadic,
-			},
-		},
-		Commands: Commands{
-			{
-				Name: "one",
-				Help: "Command One.",
-				Options: Options{
-					&Option{
-						LongName:  "boolean",
-						ShortName: "b",
-						Help:      "A Boolean Option.",
-						Kind:      Boolean,
-					},
-					&Option{
-						LongName:  "optional",
-						ShortName: "o",
-						Help:      "An Optional Option.",
-						Kind:      Optional,
-					},
-					&Option{
-						LongName:  "required",
-						ShortName: "r",
-						Help:      "A Required Option.",
-						Kind:      Required,
-					},
-					&Option{
-						LongName: "indexed",
-						Help:     "An Indexed Option.",
-						Kind:     Indexed,
-					},
-					&Option{
-						LongName:  "repeated",
-						ShortName: "p",
-						Help:      "A Repeated Option.",
-						Kind:      Repeated,
-					},
-					&Option{
-						LongName: "variadic",
-						Help:     "A Variadic Option.",
-						Kind:     Variadic,
-					},
-				},
-				SubCommands: Commands{
-					{
-						Name: "one",
-						Help: "Command One.",
-						Options: Options{
-							&Option{
-								LongName:  "boolean",
-								ShortName: "b",
-								Help:      "A Boolean Option.",
-								Kind:      Boolean,
-							},
-							&Option{
-								LongName:  "optional",
-								ShortName: "o",
-								Help:      "An Optional Option.",
-								Kind:      Optional,
-							},
-							&Option{
-								LongName:  "required",
-								ShortName: "r",
-								Help:      "A Required Option.",
-								Kind:      Required,
-							},
-							&Option{
-								LongName: "indexed",
-								Help:     "An Indexed Option.",
-								Kind:     Indexed,
-							},
-							&Option{
-								LongName:  "repeated",
-								ShortName: "p",
-								Help:      "A Repeated Option.",
-								Kind:      Repeated,
-							},
-							&Option{
-								LongName: "variadic",
-								Help:     "A Variadic Option.",
-								Kind:     Variadic,
-							},
-						},
-					},
-					{
-						Name: "two",
-						Help: "Command Two.",
-						Options: Options{
-							&Option{
-								LongName:  "boolean",
-								ShortName: "b",
-								Help:      "A Boolean Option.",
-								Kind:      Boolean,
-							},
-							&Option{
-								LongName:  "optional",
-								ShortName: "o",
-								Help:      "An Optional Option.",
-								Kind:      Optional,
-							},
-							&Option{
-								LongName:  "required",
-								ShortName: "r",
-								Help:      "A Required Option.",
-								Kind:      Required,
-							},
-							&Option{
-								LongName: "indexed",
-								Help:     "An Indexed Option.",
-								Kind:     Indexed,
-							},
-							&Option{
-								LongName:  "repeated",
-								ShortName: "p",
-								Help:      "A Repeated Option.",
-								Kind:      Repeated,
-							},
-							&Option{
-								LongName: "variadic",
-								Help:     "A Variadic Option.",
-								Kind:     Variadic,
-							},
-						},
-					},
-				},
-			},
-			{
-				Name: "two",
-				Help: "Command Two.",
-				Options: Options{
-					&Option{
-						LongName:  "boolean",
-						ShortName: "b",
-						Help:      "A Boolean Option.",
-						Kind:      Boolean,
-					},
-					&Option{
-						LongName:  "optional",
-						ShortName: "o",
-						Help:      "An Optional Option.",
-						Kind:      Optional,
-					},
-					&Option{
-						LongName:  "required",
-						ShortName: "r",
-						Help:      "A Required Option.",
-						Kind:      Required,
-					},
-					&Option{
-						LongName: "indexed",
-						Help:     "An Indexed Option.",
-						Kind:     Indexed,
-					},
-					&Option{
-						LongName:  "repeated",
-						ShortName: "p",
-						Help:      "A Repeated Option.",
-						Kind:      Repeated,
-					},
-					&Option{
-						LongName: "variadic",
-						Help:     "A Variadic Option.",
-						Kind:     Variadic,
-					},
-				},
-			},
-			{
-				Name: "three",
-				Help: "Command Three.",
-				Options: Options{
-					&Option{
-						LongName:  "boolean",
-						ShortName: "b",
-						Help:      "A Boolean Option.",
-						Kind:      Boolean,
-					},
-					&Option{
-						LongName:  "optional",
-						ShortName: "o",
-						Help:      "An Optional Option.",
-						Kind:      Optional,
-					},
-					&Option{
-						LongName:  "required",
-						ShortName: "r",
-						Help:      "A Required Option.",
-						Kind:      Required,
-					},
-					&Option{
-						LongName: "indexed",
-						Help:     "An Indexed Option.",
-						Kind:     Indexed,
-					},
-					&Option{
-						LongName:  "repeated",
-						ShortName: "p",
-						Help:      "A Repeated Option.",
-						Kind:      Repeated,
-					},
-					&Option{
-						LongName: "variadic",
-						Help:     "A Variadic Option.",
-						Kind:     Variadic,
-					},
-				},
-			},
-		},
+func TestHelpHandler(t *testing.T) {
+	var config = getPrettyPrintDemoConfig()
+	config.Commands.Register(HelpCommand())
+	config.Args = []string{"help"}
+	if err := config.Parse(nil); err != nil {
+		t.Fatal(err)
 	}
-	PrintConfig(os.Stdout, config)
+}
+
+func TestParser2(t *testing.T) {
+	var config = Default()
+	config.UseAssignment = true
+	config.Args = []string{
+		"generate",
+		"-p=penis",
+		"penis",
+	}
+
+	config.Commands.Handle("help", "h", HelpHandler)
+	config.Commands.Handle(
+		"generate",
+		"Generates commandline classes.",
+		func(c Context) error {
+			return nil
+		},
+	).Options.
+		Boolean("help-from-tag", "g", "Include help from tag.").
+		Boolean("help-from-doc", "d", "Include help from doc comments.").
+		Boolean("error-on-unsupported-field", "e", "Throws an error if unsupporrted field was encountered.").
+		Boolean("print", "r", "Print output.").
+		Boolean("no-wrote", "n", "Do not write output file.").
+		Optional("output-file", "o", "Output file name.").
+		Optional("tag-key", "t", "Name of the tag key to parse.").
+		Required("package-name", "p", "Name of the package output go file belongs to.").
+		Variadic("packages", "Packages to parse.")
+
+	if err := config.Parse(nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func getPrettyPrintDemoConfig() (out *Config) {
+
+	out = Default()
+	out.Globals.Boolean("verbose", "v", "Be verbose.")
+
+	var cmd *Command
+	cmd = out.Commands.Handle("one", "Command one.", NopHandler)
+	cmd.Options.
+		Boolean("boolean", "b", "A Boolean option.").
+		Optional("optional", "o", "An Optional Option.").
+		Required("required", "r", "A Required Option.").
+		Repeated("repeated", "p", "A Repeated Option.").
+		Indexed("indexed", "An Indexed Option.")
+
+	cmd.SubCommands.Handle("subone", "Subcommand One.", NopHandler).Options.
+		Boolean("boolean", "b", "A Boolean option.").
+		Optional("optional", "o", "An Optional Option.").
+		Required("required", "r", "A Required Option.").
+		Repeated("repeated", "p", "A Repeated Option.").
+		Indexed("indexed", "An Indexed Option.").
+		Variadic("variadic", "A Variadic Option")
+
+	cmd.SubCommands.Handle("subtwo", "Subcommand Two.", NopHandler).Options.
+		Boolean("boolean", "b", "A Boolean option.").
+		Optional("optional", "o", "An Optional Option.").
+		Required("required", "r", "A Required Option.").
+		Repeated("repeated", "p", "A Repeated Option.").
+		Indexed("indexed", "An Indexed Option.").
+		Variadic("variadic", "A Variadic Option")
+
+	out.Commands.Handle("two", "Command two.", NopHandler).Options.
+		Boolean("boolean", "b", "A Boolean option.").
+		Optional("optional", "o", "An Optional Option.").
+		Required("required", "r", "A Required Option.").
+		Repeated("repeated", "p", "A Repeated Option.").
+		Indexed("indexed", "An Indexed Option.").
+		Variadic("variadic", "A Variadic Option")
+
+	out.Commands.Handle("three", "Command three.", NopHandler).Options.
+		Boolean("boolean", "b", "A Boolean option.").
+		Optional("optional", "o", "An Optional Option.").
+		Required("required", "r", "A Required Option.").
+		Repeated("repeated", "p", "A Repeated Option.").
+		Indexed("indexed", "An Indexed Option.").
+		Variadic("variadic", "A Variadic Option")
+
+	return
 }

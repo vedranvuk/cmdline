@@ -1,293 +1,444 @@
-// Copyright 2023 Vedran Vuk. All rights reserved.
-// Use of this source code is governed by a MIT
-// license that can be found in the LICENSE file.
-
 package cmdline
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/vedranvuk/strutils"
 )
 
-var (
-	// ErrNoArgs is returned by Parse if no arguments were given for parsing.
-	ErrNoArgs = errors.New("no arguments")
-)
+// Args is a slice of strings containing arguments to parse and implements
+// a few helpers to tokenize, scan and process the slice.
+//
+// It is used by [Commands.parse] and [Options.parse].
+type Args []string
+
+// Kind returns the current argument kind.
+func (self Args) Kind(config *Config) (kind Argument) {
+	if self.Eof() {
+		return NoArgument
+	}
+	kind = TextArgument
+	// in case of "-" as short and "--" as long, long wins.
+	if strings.HasPrefix(self.First(), config.ShortPrefix) {
+		kind = ShortArgument
+	}
+	if strings.HasPrefix(self.First(), config.LongPrefix) {
+		kind = LongArgument
+	}
+	return
+}
+
+// Argument defines the kind of argument being parsed.
+type Argument int
 
 const (
-	// DefaultLongPrefix is the default prefix for long option names.
-	DefaultLongPrefix = "--"
-	// DefaultShortPrefix is the default prefix for short option names.
-	DefaultShortPrefix = "-"
+	// NoArgument indicates no argument. It's returned if Arguments are empty.
+	NoArgument Argument = iota
+	// LongArgument indicates a token with a long option prefix.
+	LongArgument
+	// ShortArgument indicates a token with a short option prefix.
+	ShortArgument
+	// TextArgument indicates a text token with no prefix.
+	TextArgument
 )
 
-// Config contains Command and global Option definitions, Arguments to parse
-// and other options packed into a single struct for use as an argument to
-// one of the Parse methods.
-type Config struct {
-
-	// Usage is a function to call when no arguments are given to Parse.
-	//
-	// If unset, invokes the built in [Config.PrintUsage]. Parse functions will
-	// still return ErrNoArgs.
-	Usage func()
-
-	// Arguments are the arguments to parse. This is usually set to os.Args[1:].
-	Arguments Arguments
-
-	// Globals are the global Options, independant of any defined commands.
-	//
-	// They are parsed from arguments that precede any command invocation.
-	// Their state can be inspected either from [Config.GlobalsHandler] or
-	// after parsing by inspecting the Globals directly.
-	Globals Options
-
-	// GlobalsHandler is an optional handler for Globals.
-	//
-	// It is invoked if any global options get parsed and before any command
-	// handlers are invoked.
-	GlobalsHandler Handler
-
-	// GlobalExclusivityGroups are exclusivity groups for Globals.
-	GlobalExclusivityGroups ExclusivityGroups
-
-	// Commands is the root command set.
-	Commands Commands
-
-	// LongPrefix is the long Option prefix to use. It is optional and is
-	// defaulted to DefaultLongPrefix by Parse() if left empty.
-	LongPrefix string
-
-	// ShortPrefix is the short Option prefix to use. It is optional and is
-	// defaulted to DefaultShortPrefix by Parse() if left empty.
-	ShortPrefix string
-
-	// NoFailOnUnparsedRequired if true, will not return an error if a
-	// defined Required or Indexed option was not parsed from arguments.
-	//
-	// Default: false
-	NoFailOnUnparsedRequired bool
-
-	// NoAssignment if true, uses '--key value' format instead of '--key=value'.
-	//
-	// Default: false
-	NoAssignment bool
-
-	// NoIndexedFirst if true, does not require that any Indexed Options must
-	// be parsed before any other types of defined options.
-	//
-	// Default: false
-	NoIndexedFirst bool
-
-	// NoExecLastHandlerOnly if true will execute handlers of all Commands in
-	// the execution chain. If false Parse executes only the Handler of the
-	// last Command in the execution chain.
-	//
-	// Default: false
-	NoExecLastHandlerOnly bool
-
-	// context is the context given to Config.Parse and is set at that time.
-	// If nil context was given, Config.Parse sets it to context.Background().
-	context context.Context
-	// chain is the chain of commands to execute determined by parse.
-	chain []*Command
-}
-
-func Default() *Config {
-	return &Config{
-		Arguments:   os.Args[1:],
-		LongPrefix:  DefaultLongPrefix,
-		ShortPrefix: DefaultShortPrefix,
+// First returns first element of the slice, unmodified.
+// If slice is empty returns an empty string.
+func (self Args) First() string {
+	if self.Eof() {
+		return ""
 	}
+	return self[0]
 }
 
-// Parse parses config.Arguments into config.Globals then config.Commands.
-// It returns nil on success or an error if one occured.
-// It invokes Config.Parse with a context.Background().
-// See Config.Parse for more details.
-func Parse(config *Config) error { return config.Parse(context.Background()) }
-
-// Parse parses config.Arguments into config.Globals then config.Commands.
-// It returns nil on success or an error if one occured.
-// It invokes COnfig.Parse with the specified ctx.
-// See Config.Parse for more details.
-func ParseCtx(ctx context.Context, config *Config) error { return config.Parse(ctx) }
-
-// Usage prints the default autogenerated usage text to Stdout.
-// It is called in the case of no arguments if no Config.Usage is set and may
-// be called manually.
-func (self *Config) PrintUsage() {
-	var exe = filepath.Base(os.Args[0])
-	fmt.Printf("Usage: %s [global-options] ...command [...command-option]\n", exe)
-	fmt.Printf("Type '%s help' for more help.\n", exe)
-}
-
-// Parse parses self.Arguments into self.Globals then self.Commands and their
-// Options, recursively. Both Globals and Commands are optional and if none are
-// defined in the Config, Parse will return nil for any arguments except no
-// arguments where it returns ErrNoArgs.
-//
-// Parse will first parse Config.Globals and call the GlobalsHandler if set
-// after they have been parsed. If no GlobalsHandler is set, Globals may be
-// inspected manually from the Config.
-//
-// Parse then continues matching the following argument to a Command,
-// parsing Options for that Command and then calls the Command's Handler.
-// If the Command contains sub Commands and there are unparsed arguments left,
-// it continues parsing arguments into that Command's sub Commands.
-//
-// If an undefined Command or Option was specified, either due to a typo or
-// malformatted arguments Parse will return a descriptive error.
-//
-// If no arguments were given Parse will call Config.Usage if set or print a
-// default autogenerated usage text if not and in both cases return ErrNoArgs.
-//
-// If a Command handler returns an error the parse process is immediately
-// aborted and the error propagated back to the Parse/ParseCtx caller.
-//
-// As Commands and options can be defined declaratively there is no way to
-// check for name duplicates at runtime so a validation is performed before the
-// parse operation. Once the validation passes, i.e. Parse is called once and
-// no validation errors are returned the Config definition is considered
-// validated and well formatted. This also ensures validity of any config
-// modifications at runtime.
-//
-// Following validation rules are enforced before the parse process and will
-// return a descriptive error if any validation fails:
-//
-// * There may be no duplicate Command instance names per their Commands group.
-// * There may be no duplicate Option instance names within their Options group.
-// For more details see Command, Option, ValidateOptions and ValidateCommands.
-//
-// * If the Config.Globals Options set contains a Variadic Option which consumes
-// all following arguments as value to self, there may be no Command instances
-// defined in Commands.
-//
-// * If a Commands set at the root Config.Commands or any sub level contains a
-// Variadic Option definition, it may not have any sub commands as Variadic
-// Option consumes all remaining arguments as its values and stops further
-// sub Command parsing.
-func (self *Config) Parse(ctx context.Context) (err error) {
-
-	// Verify and store context.
-	if self.context = ctx; self.context == nil {
-		self.context = context.Background()
+// Text returns first element of the slice stripped of option prefixes.
+// If slice is empty returns an empty string.
+func (self Args) Text(config *Config) string {
+	switch k := self.Kind(config); k {
+	case ShortArgument:
+		return string(self.First()[len(config.ShortPrefix):])
+	case LongArgument:
+		return string(self.First()[len(config.LongPrefix):])
+	case TextArgument:
+		return self.First()
 	}
+	return ""
+}
 
-	// No arguments case.
-	// Call Usage or print default text.
-	if len(self.Arguments) == 0 {
-		if self.Usage != nil {
-			self.Usage()
-			return ErrNoArgs
+// Next discards the first element of the slice.
+func (self *Args) Next() *Args {
+	if self.Eof() {
+		return self
+	}
+	*self = (*self)[1:]
+	return self
+}
+
+// Clear clears the slice.
+func (self *Args) Clear() { *self = Args{} }
+
+// Eof returns true if there are no more elements in the slice.
+func (self Args) Eof() bool { return len(self) == 0 }
+
+// parse parses [Commands] from config.Args or returns an error.
+func (self Commands) parse(config *Config) (err error) {
+	switch kind, name := config.Args.Kind(config), config.Args.Text(config); kind {
+	case NoArgument:
+		return nil
+	case LongArgument, ShortArgument:
+		return errors.New("expected command name, got option")
+	case TextArgument:
+		var cmd = self.Find(name)
+		if cmd == nil {
+			return fmt.Errorf("command '%s' not registered", name)
 		}
-		self.PrintUsage()
-		return ErrNoArgs
-	}
-
-	// Validation.
-	if self.Commands.Count() > 0 && optionsHaveVariadicOption(self.Globals) {
-		return errors.New("validation failed: globals contain a variadic option with command definitions present")
-	}
-	if err = ValidateOptions(self.Globals); err != nil {
-		return
-	}
-	if err = ValidateCommands(self.Commands); err != nil {
-		return
-	}
-
-	// Verify and set defaults.
-	if self.LongPrefix == "" {
-		self.LongPrefix = DefaultLongPrefix
-	}
-	if self.ShortPrefix == "" {
-		self.ShortPrefix = DefaultShortPrefix
-	}
-
-	var w *wrapper
-
-	// Process Globals
-	if err = self.Globals.parse(self); err != nil {
-		return
-	}
-	if err = validateExclusivityGroups(self.GlobalExclusivityGroups, self.Globals); err != nil {
-		return
-	}
-	w = &wrapper{
-		self.context,
-		self,
-		nil,
-		nil,
-		self.Globals,
-	}
-	if self.GlobalsHandler != nil {
-		if err = self.GlobalsHandler(w); err != nil {
+		config.Args.Next()
+		if err = cmd.Options.parse(config); err != nil {
 			return
 		}
-	}
-
-	// Process Commands
-	if err = self.Commands.parse(self); err != nil {
-		return
-	}
-	if self.Commands.Count() == 0 || len(self.chain) == 0 {
-		return nil
-	}
-	var (
-		parent *Command
-		last   = len(self.chain) - 1
-	)
-	for index, current := range self.chain {
-		if self.NoExecLastHandlerOnly || index == last {
-			w = &wrapper{
-				self.context,
-				self,
-				current,
-				parent,
-				current.Options,
-			}
-			if err = current.Handler(w); err != nil {
-				return
-			}
+		if err = validateCommandExclusivityGroups(cmd); err != nil {
+			return
 		}
-		parent = current
+		cmd.executed = true
+		config.chain = append(config.chain, cmd)
+		if err = cmd.SubCommands.parse(config); err != nil {
+			return
+		}
+		if cmd.RequireSubExecution && cmd.SubCommands.Count() > 0 && !cmd.SubCommands.AnyExecuted() {
+			return fmt.Errorf("command '%s' requires execution of one of its subcommands", cmd.Name)
+		}
 	}
-
 	return nil
 }
 
-// Reset resets the state of all Commands and Options including Globals defined
-// in self, recursively. After calling Reset the Config is ready to be parsed.
-func (self *Config) Reset() {
-	// TODO: Implement Config.Reset.
+// parse parses [Options] from config.Args or returns an error.
+func (self Options) parse(config *Config) (err error) {
+
+	if self.Count() == 0 {
+		return nil
+	}
+
+	var (
+		opt        *Option
+		key, val   string
+		assignment bool
+	)
+
+	for !config.Args.Eof() {
+
+		// Parse key and val.
+		if config.UseAssignment {
+			key, val, assignment = strings.Cut(config.Args.Text(config), "=")
+			key = strings.TrimSpace(key)
+			if assignment && val != "" {
+				val, _ = strutils.UnquoteDouble(strings.TrimSpace(val))
+			}
+		} else {
+			key = strings.TrimSpace(config.Args.Text(config))
+			val = ""
+			assignment = false
+		}
+
+		// Try to detect the option by argument kind.
+		// If not prefixed see if theres defined and yet unparsed indexed.
+		// If prefixed see if its Boolean, Optional, Required or Repeated.
+		switch kind := config.Args.Kind(config); kind {
+		case TextArgument:
+			if !config.UseAssignment && opt != nil {
+				switch opt.Kind {
+				case Optional, Required, Repeated:
+				default:
+					return fmt.Errorf("option '%s' requires a value", opt.LongName)
+
+				}
+			} else {
+				if o := self.getFirstUnparsedIndexed(); o != nil {
+					opt = o
+				}
+			}
+		case LongArgument:
+			if config.IndexedFirst {
+				if fui := self.getFirstUnparsedIndexed(); fui != nil {
+					return fmt.Errorf("indexed argument '%s' not parsed", fui.LongName)
+				}
+			}
+
+			if !config.UseAssignment && opt != nil {
+				return fmt.Errorf("option '%s' requires a value", opt.LongName)
+			}
+
+			if opt = self.FindLong(key); opt == nil {
+				return fmt.Errorf("unknown option '%s'", key)
+			}
+
+			switch opt.Kind {
+			case Boolean:
+			case Optional, Required, Repeated:
+				if !config.UseAssignment {
+					config.Args.Next()
+					continue
+				}
+			default:
+				return fmt.Errorf("option '%s' exists, but is not named", opt.LongName)
+
+			}
+		case ShortArgument:
+			if config.IndexedFirst {
+				if fui := self.getFirstUnparsedIndexed(); fui != nil {
+					return fmt.Errorf("indexed argument '%s' not parsed", fui.LongName)
+				}
+			}
+
+			if !config.UseAssignment && opt != nil {
+				return fmt.Errorf("option '%s' requires a value", opt.LongName)
+			}
+
+			if opt = self.FindShort(key); opt == nil {
+				return fmt.Errorf("unknown option '%s'", key)
+			}
+
+			switch opt.Kind {
+			case Boolean:
+			case Optional, Required, Repeated:
+				if !config.UseAssignment {
+					config.Args.Next()
+					continue
+				}
+			default:
+				return fmt.Errorf("option '%s' exists, but is not named", opt.LongName)
+
+			}
+		}
+
+		// No options matched so far, see if there's a Variadic.
+		if opt == nil {
+			for _, v := range self {
+				if v.Kind == Variadic {
+					opt = v
+					break
+				}
+			}
+			if opt == nil {
+				break
+			}
+		}
+
+		// Fail if non *Repeatable option and parsed multiple times.
+		if opt.Kind != Repeated {
+			if opt.IsParsed {
+				return fmt.Errorf("option %s specified multiple times", opt.LongName)
+			}
+		}
+
+		// Sets the Option as parsed and sets raw value(s).
+		switch opt.Kind {
+		case Boolean:
+			if !config.UseAssignment {
+				opt.IsParsed = true
+			} else {
+				if assignment {
+					return fmt.Errorf("option '%s' cannot be assigned a value", opt.LongName)
+				}
+				opt.IsParsed = true
+			}
+		case Optional:
+			if !config.UseAssignment {
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
+			} else {
+				if !assignment || val == "" {
+					return fmt.Errorf("option '%s' requires a value", opt.LongName)
+				}
+				opt.Values = append(opt.Values, val)
+				opt.IsParsed = true
+			}
+		case Required:
+			if !config.UseAssignment {
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
+			} else {
+				if !assignment || val == "" {
+					return fmt.Errorf("option '%s' requires a value", opt.LongName)
+				}
+				opt.Values = append(opt.Values, val)
+				opt.IsParsed = true
+			}
+		case Repeated:
+			if !config.UseAssignment {
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
+			} else {
+				if !assignment || val == "" {
+					return fmt.Errorf("option '%s' requires a value", opt.LongName)
+				}
+				opt.Values = append(opt.Values, val)
+				opt.IsParsed = true
+			}
+		case Indexed:
+			if !config.UseAssignment {
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
+			} else {
+				opt.Values = append(opt.Values, key)
+				opt.IsParsed = true
+			}
+		case Variadic:
+			opt.Values = append(opt.Values, config.Args...)
+			opt.IsParsed = true
+			config.Args.Clear()
+		}
+
+		if err = self.setVar(opt); err != nil {
+			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.Var, opt.LongName, err)
+		}
+
+		opt = nil
+		config.Args.Next()
+	}
+
+	if !config.NoFailOnUnparsedRequired {
+		for _, opt = range self {
+			if !opt.IsParsed {
+				if opt.Kind == Required {
+					return fmt.Errorf("required option '%s' not parsed", opt.LongName)
+				}
+				if opt.Kind == Indexed {
+					return fmt.Errorf("indexed option '%s' not parsed", opt.LongName)
+				}
+			}
+		}
+	}
+
+	return
 }
 
-// wrapper implements [Context].
-type wrapper struct {
-	context.Context
-	config  *Config
-	command *Command
-	parent  *Command
-	options Options
+// getFirstUnparsedIndexed returns the first Indexed Option that is not parsed.
+// Returns nil if none found.
+func (self Options) getFirstUnparsedIndexed() *Option {
+	for _, option := range self {
+		if option.Kind == Indexed {
+			if !option.IsParsed {
+				return option
+			}
+		}
+	}
+	return nil
 }
 
-// Parsed implements [Context.Parsed].
-func (self *wrapper) Parsed(longName string) bool { return self.options.Parsed(longName) }
+// setVar converts option.State.RawValue to option.MappedValue if option's
+// raw value is not nil.
+//
+// Returns nil on success of no value mapped.. Returns a non nil error on
+// failed conversion only.
+//
+// option.MappedValue must be a pointer to a supported type or any type that
+// supports conversion from a string by implementing the Value interface.
+//
+// Supported types are:
+// *bool, *string, *float32, *float64,
+// *int, *int8, *int16, *1nt32, *int64,
+// *uint, *uint8, *uint16, *u1nt32, *uint64
+// *time.Duration, *[]string, and any type supporting Value interface.
+//
+// If an unsupported type was set as option.MappedValue Parse will return a
+// conversion error.
+func (self Options) setVar(option *Option) (err error) {
 
-// Config implements [Context.Config].
-func (self *wrapper) Config() *Config { return self.config }
+	if option.Var == nil {
+		return nil
+	}
 
-// Command implements [Context.Command].
-func (self *wrapper) Command() *Command { return self.command }
+	if option.Kind != Boolean {
+		if option.Values.Count() < 1 {
+			return nil
+		}
+	}
 
-// ParentCommand implements [Context.ParentCommand].
-func (self *wrapper) ParentCommand() *Command { return self.parent }
+	switch option.Kind {
+	case Boolean, Optional, Required, Indexed, Variadic:
+		return convertToVar(option.Var, option.Values)
+	case Repeated:
+		return convertToVar(option.Var, option.Values[len(option.Values)-1:])
+	default:
+		return errors.New("invalid OptionKind")
+	}
+}
 
-// Options implements [Context.Options].
-func (self *wrapper) Options() Options { return self.options }
-
-// Values implements [Context.Values].
-func (self *wrapper) Values(longName string) Values { return self.Values(longName) }
+// convertToVar sets v which must be a pointer to a supported type from raw
+// or returns an error if conversion error occured.
+func convertToVar(v any, raw Values) (err error) {
+	switch p := v.(type) {
+	case *bool:
+		*p = true
+	case *string:
+		*p = raw.First()
+	case *int:
+		var v int64
+		if v, err = strconv.ParseInt(raw.First(), 10, 0); err == nil {
+			*p = int(v)
+		}
+	case *uint:
+		var v uint64
+		if v, err = strconv.ParseUint(raw.First(), 10, 0); err == nil {
+			*p = uint(v)
+		}
+	case *int8:
+		var v int64
+		if v, err = strconv.ParseInt(raw.First(), 10, 8); err == nil {
+			*p = int8(v)
+		}
+	case *uint8:
+		var v uint64
+		if v, err = strconv.ParseUint(raw.First(), 10, 8); err == nil {
+			*p = uint8(v)
+		}
+	case *int16:
+		var v int64
+		if v, err = strconv.ParseInt(raw.First(), 10, 16); err == nil {
+			*p = int16(v)
+		}
+	case *uint16:
+		var v uint64
+		if v, err = strconv.ParseUint(raw.First(), 10, 16); err == nil {
+			*p = uint16(v)
+		}
+	case *int32:
+		var v int64
+		if v, err = strconv.ParseInt(raw.First(), 10, 32); err == nil {
+			*p = int32(v)
+		}
+	case *uint32:
+		var v uint64
+		if v, err = strconv.ParseUint(raw.First(), 10, 32); err == nil {
+			*p = uint32(v)
+		}
+	case *int64:
+		*p, err = strconv.ParseInt(raw.First(), 10, 64)
+	case *uint64:
+		*p, err = strconv.ParseUint(raw.First(), 10, 64)
+	case *float32:
+		var v float64
+		if v, err = strconv.ParseFloat(raw.First(), 64); err == nil {
+			*p = float32(v)
+		}
+	case *float64:
+		*p, err = strconv.ParseFloat(raw.First(), 64)
+	case *[]string:
+		*p = append(*p, raw...)
+	case *time.Duration:
+		*p, err = time.ParseDuration(raw.First())
+	case *time.Time:
+		*p, err = time.Parse(time.RFC3339, raw.First())
+	default:
+		if v, ok := p.(Value); ok {
+			err = v.Set(raw)
+		} else {
+			return errors.New("unsupported mapped value")
+		}
+	}
+	return
+}

@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"log"
 	"os"
-	"reflect"
 	"strings"
 	"text/template"
 	"text/template/parse"
@@ -44,11 +43,9 @@ const (
 // cmdline:"help=Generates commands from structs parsed from packages."
 type GenerateConfig struct {
 
-	// TagKey is the name of the tag key whose value is read by cmdline from
-	// struct tags or doc comments.
-	//
-	// Default: DefaultTagKey.
-	TagKey string `cmdline:"name=tag-key" json:"tagName,omitempty"`
+	// Packages is a list of packages to parse. It is a list of relative or full
+	// paths to go packages or import paths.
+	Packages []string `cmdline:"name=packages" json:"packages,omitempty"`
 
 	// OutputFile is the output file that will contain generated commands.
 	// It can be a full or relative path to a go file and if ommited a default
@@ -58,9 +55,11 @@ type GenerateConfig struct {
 	// PackageName is the name of the package generated file belongs to.
 	PackageName string `cmdline:"package-name" json:"packageName,omitempty"`
 
-	// Packages is a list of packages to parse. It is a list of relative or full
-	// paths to go packages or import paths.
-	Packages []string `cmdline:"name=packages" json:"packages,omitempty"`
+	// TagKey is the name of the tag key whose value is read by cmdline from
+	// struct tags or doc comments.
+	//
+	// Default: DefaultTagKey.
+	TagKey string `cmdline:"name=tag-key" json:"tagName,omitempty"`
 
 	// HelpFromTag if true Adds option help from HelpTag.
 	HelpFromTag bool `cmdline:"name=help-from-tag" json:"helpFromTag,omitempty"`
@@ -102,7 +101,7 @@ func DefaultGenerateConfig() (c *GenerateConfig) {
 	c.NoWrite = false
 	c.ErrorOnUnsupportedField = false
 	c.BastConfig = bast.DefaultConfig()
-	c.BastConfig.HaltOnTypeCheckErrors = false
+	c.BastConfig.TypeCheckingErrors = false
 	c.Model.ImportMap = make(ImportMap)
 	return
 }
@@ -525,6 +524,8 @@ func (self *GenerateConfig) uncommentDocs(in []string) (out []string) {
 }
 
 // helpFromDoc generates help from tag and doc comment.
+//
+// It strips comment prefixes from each doc line.
 func (self *GenerateConfig) makeHelp(tag, doc []string) string {
 	const col = 80
 	var out []string
@@ -561,11 +562,10 @@ func (self *GenerateConfig) makeHelp(tag, doc []string) string {
 }
 
 // generateShortNames generates short Option names.
-// It does it by setting the lowercase first letter of option name as the short 
-// option name. It then scans previously defined short names and if a colision 
-// is detected it tries next letter in the long name until colision has been 
-// resolved. If colision was not resolved shortname will be empty.
 func generateShortNames(c *Command) {
+	// Sequentially go through options, setting shortcmd to lowercase forst
+	// letter from longname. Each time check if it is already used and advance
+	// to next letter in longname until unique or exhausted.
 	for idx, option := range c.Options {
 		var name = strings.ToLower(option.LongName)
 	GenShort:
@@ -579,6 +579,7 @@ func generateShortNames(c *Command) {
 			break GenShort
 		}
 	}
+	// Check all short names for duplicates and unset duplicates.
 	for _, option := range c.Options {
 		var n = option.ShortName
 		for _, other := range c.Options {
@@ -590,50 +591,4 @@ func generateShortNames(c *Command) {
 			}
 		}
 	}
-}
-
-// LazyStructCopy copies values from src fields that have a coresponding field
-// in dst to that field in dst. Fields must have same name and type. Tags are
-// ignored. src and dest must be of struct type and addressable.
-func LazyStructCopy(src, dst interface{}) error {
-
-	var (
-		dstErr = errors.New("destination must be a pointer to a struct")
-		srcv   = reflect.Indirect(reflect.ValueOf(src))
-		dstv   = reflect.ValueOf(dst)
-	)
-
-	if srcv.Kind() != reflect.Struct {
-		return errors.New("source must be a struct")
-	}
-
-	if dstv.Kind() != reflect.Pointer {
-		return dstErr
-	}
-	dstv = reflect.Indirect(dstv)
-	if dstv.Kind() != reflect.Struct {
-		return dstErr
-	}
-
-	for i := 0; i < srcv.NumField(); i++ {
-		var (
-			name = srcv.Type().Field(i).Name
-			tgt  = dstv.FieldByName(name)
-		)
-		if !tgt.IsValid() {
-			continue
-		}
-		if tgt.Kind() != srcv.Field(i).Kind() {
-			continue
-		}
-		if name == "_" {
-			continue
-		}
-		if name[0] >= 97 && name[0] <= 122 {
-			continue
-		}
-		tgt.Set(srcv.Field(i))
-	}
-
-	return nil
 }

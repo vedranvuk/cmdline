@@ -6,9 +6,6 @@ package cmdline
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"os"
 )
 
 // Handler is a Command invocation callback prototype. It carries a Command
@@ -26,10 +23,26 @@ type Handler func(Context) error
 // allow for the command chain execution to continue.
 var NopHandler = func(Context) error { return nil }
 
-// HelpHandler is a utility handler that prints the current configuration,
+// HelpHandler is a utility handler that prints the current configuration.
 var HelpHandler = func(c Context) error {
-	PrintConfig(os.Stdout, c.Config())
+
+	if config := c.Config(); config != nil {
+		config.PrintUsage()
+		PrintConfig(config.output(), c.Config())
+	}
+
 	return nil
+}
+
+// HelpCommand is a utility function that returns a command that handles "help"
+// using HelpHandler.
+func HelpCommand() *Command {
+	return &Command{
+		Name:                "help",
+		Help:                "Prints out the command usage.",
+		RequireSubExecution: false,
+		Handler:             HelpHandler,
+	}
 }
 
 // Context is passed to the Command handler that allows inspection of
@@ -164,6 +177,15 @@ func (self Commands) AnyExecuted() bool {
 	return false
 }
 
+// Reset resets all command and command otpion states recursively.
+func (self Commands) Reset() {
+	for _, command := range self {
+		command.executed = false
+		command.Options.Reset()
+		command.SubCommands.Reset()
+	}
+}
+
 // VisitCommand is a prototype of a function called for each Command visited.
 // It must return true to continue enumeration.
 type VisitCommand func(c *Command) bool
@@ -192,35 +214,4 @@ func walkCommands(c Commands, f func(c *Command) bool, executed, notexecuted boo
 			walkCommands(cmd.SubCommands, f, executed, notexecuted)
 		}
 	}
-}
-
-// parse parses self from config or returns an error.
-func (self Commands) parse(config *Config) (err error) {
-	switch kind, name := config.Arguments.Kind(config), config.Arguments.Text(config); kind {
-	case NoArgument:
-		return nil
-	case LongArgument, ShortArgument:
-		return errors.New("expected command name, got option")
-	case TextArgument:
-		var cmd = self.Find(name)
-		if cmd == nil {
-			return fmt.Errorf("command '%s' not registered", name)
-		}
-		config.Arguments.Next()
-		if err = cmd.Options.parse(config); err != nil {
-			return
-		}
-		if err = validateCommandExclusivityGroups(cmd); err != nil {
-			return
-		}
-		cmd.executed = true
-		config.chain = append(config.chain, cmd)
-		if err = cmd.SubCommands.parse(config); err != nil {
-			return
-		}
-		if cmd.RequireSubExecution && cmd.SubCommands.Count() > 0 && !cmd.SubCommands.AnyExecuted() {
-			return fmt.Errorf("command '%s' requires execution of one of its subcommands", cmd.Name)
-		}
-	}
-	return nil
 }
