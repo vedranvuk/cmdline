@@ -2,7 +2,9 @@
 
 Cmdline is handler based command line parser. It supports Commands with SubCommands, multiple Option types and mapping to variables.
 
-Package is in experimental stage.
+Package is in experimental stage. 
+
+**If you plan on using it, vendor it.**
 
 ## Examples
 

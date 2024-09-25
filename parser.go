@@ -300,15 +300,13 @@ func (self Options) parse(config *Config) (err error) {
 		config.Args.Next()
 	}
 
-	if !config.NoFailOnUnparsedRequired {
-		for _, opt = range self {
-			if !opt.IsParsed {
-				if opt.Kind == Required {
-					return fmt.Errorf("required option '%s' not parsed", opt.LongName)
-				}
-				if opt.Kind == Indexed {
-					return fmt.Errorf("indexed option '%s' not parsed", opt.LongName)
-				}
+	for _, opt = range self {
+		if !opt.IsParsed {
+			if opt.Kind == Required {
+				return fmt.Errorf("required option '%s' not parsed", opt.LongName)
+			}
+			if opt.Kind == Indexed {
+				return fmt.Errorf("indexed option '%s' not parsed", opt.LongName)
 			}
 		}
 	}

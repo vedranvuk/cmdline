@@ -28,7 +28,7 @@ var HelpHandler = func(c Context) error {
 
 	if config := c.Config(); config != nil {
 		config.PrintUsage()
-		PrintConfig(config.output(), c.Config())
+		PrintConfig(config.GetOutput(), c.Config())
 	}
 
 	return nil

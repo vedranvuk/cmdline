@@ -72,20 +72,6 @@ type Config struct {
 	// Commands is the root command set.
 	Commands Commands
 
-	// LongPrefix is the long Option prefix to use. It is optional and is
-	// defaulted to DefaultLongPrefix by Parse() if left empty.
-	LongPrefix string
-
-	// ShortPrefix is the short Option prefix to use. It is optional and is
-	// defaulted to DefaultShortPrefix by Parse() if left empty.
-	ShortPrefix string
-
-	// NoFailOnUnparsedRequired if true, will not return an error if a
-	// defined Required or Indexed option was not parsed from arguments.
-	//
-	// Default: false
-	NoFailOnUnparsedRequired bool
-
 	// UseAssignment requires that [Option] value must be given using an
 	// assignment operator such that option name is immediately followed by an
 	// assignment operator then immediately with the option value.
@@ -114,6 +100,14 @@ type Config struct {
 	// Default: false
 	ExecAllHandlers bool
 
+	// LongPrefix is the long Option prefix to use. It is optional and is
+	// defaulted to DefaultLongPrefix by Parse() if left empty.
+	LongPrefix string
+
+	// ShortPrefix is the short Option prefix to use. It is optional and is
+	// defaulted to DefaultShortPrefix by Parse() if left empty.
+	ShortPrefix string
+
 	// context is the context given to Config.Parse and is set at that time.
 	// If nil context was given, Config.Parse sets it to context.Background().
 	context context.Context
@@ -130,7 +124,7 @@ func Default(args ...string) *Config {
 	}
 }
 
-// DefaultOs returns [Default] with os.Args[1:]... as arguments. 
+// DefaultOs returns [Default] with os.Args[1:]... as arguments.
 func DefaultOs() *Config { return Default(os.Args[1:]...) }
 
 // Parse parses config.Arguments into config.Globals then config.Commands.
@@ -202,9 +196,14 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 	if len(self.Args) == 0 {
 		if self.Usage != nil {
 			self.Usage()
-			return ErrNoArgs
+		} else {
+			self.PrintUsage()
 		}
-		self.PrintUsage()
+
+		if self.Commands.Find("help") != nil {
+			fmt.Fprintf(self.GetOutput(), "type: \"%s help\" for more help.\n", filepath.Base(os.Args[0]))
+		}
+
 		return ErrNoArgs
 	}
 
@@ -319,11 +318,13 @@ func (self *Config) PrintUsage() {
 	}
 
 	out += "\n"
-	fmt.Fprint(self.output(), out)
+
+	fmt.Fprint(self.GetOutput(), out)
 }
 
-// output returns the output to write to.
-func (self *Config) output() io.Writer {
+// GetOutput returns the output to write to.
+// If [Config.Output] is set it returns that, if not returns [defaultOutput].
+func (self *Config) GetOutput() io.Writer {
 	if self.Output != nil {
 		return self.Output
 	}

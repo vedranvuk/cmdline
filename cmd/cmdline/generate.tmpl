@@ -33,7 +33,7 @@ var ({{range $command := .Commands}}
 func cmdlineConfig() *cmdline.Config {
 
 	var config = &cmdline.Config{
-		Arguments: os.Args[1:],
+		Args: os.Args[1:],
 		Commands: cmdline.Commands{ {{range .Commands}}
 			{{.Name}}Cmd,{{end}}
 		},

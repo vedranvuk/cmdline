@@ -77,7 +77,7 @@ var (
 func cmdlineConfig() *cmdline.Config {
 
 	var config = &cmdline.Config{
-		Arguments: os.Args[1:],
+		Args: os.Args[1:],
 		Commands: cmdline.Commands{
 			optionsCmd,
 			configCmd,
