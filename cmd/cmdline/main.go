@@ -15,7 +15,7 @@ const version = "0.0.0-dev"
 
 func main() {
 
-	var config = cmdline.DefaultOs()
+	var config = cmdline.DefaultOS()
 
 	// Help command and subcommands.
 	var help = config.Commands.Handle("help", "Show help.", func(c cmdline.Context) error {

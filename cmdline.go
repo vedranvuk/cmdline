@@ -124,8 +124,8 @@ func Default(args ...string) *Config {
 	}
 }
 
-// DefaultOs returns [Default] with os.Args[1:]... as arguments.
-func DefaultOs() *Config { return Default(os.Args[1:]...) }
+// DefaultOS returns [Default] with os.Args[1:]... as arguments.
+func DefaultOS() *Config { return Default(os.Args[1:]...) }
 
 // Parse parses config.Arguments into config.Globals then config.Commands.
 // It returns nil on success or an error if one occured.
