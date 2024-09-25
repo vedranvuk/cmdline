@@ -115,9 +115,9 @@ func optionString(config *Config, longname, shortname string, value bool) (resul
 	}
 	if value {
 		if config.UseAssignment {
-			result = result + " <value>"
-		} else {
 			result = result + "=<value>"
+		} else {
+			result = result + " <value>"
 		}
 	}
 	return
