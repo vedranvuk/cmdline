@@ -1,3 +1,7 @@
+// Copyright 2023-2024 Vedran Vuk. All rights reserved.
+// Use of this source code is governed by a MIT
+// license that can be found in the LICENSE file.
+
 package main
 
 import (
@@ -31,9 +35,9 @@ func main() {
 		}
 		return cmdline.HelpHandler(c)
 	})
-
 	help.Options.Variadic("topic", "Show help for a specific topic.")
 
+	// Help topics command.
 	config.Commands.Handle("help-topics", "Show help topics.", func(c cmdline.Context) error {
 		var tw = tabwriter.NewWriter(c.Config().GetOutput(), 2, 2, 2, 32, 0)
 		fmt.Fprintf(tw, "%s\t%s\n", "generate", "Show help on generate command.")
@@ -77,6 +81,7 @@ func main() {
 		Boolean("no-write", "n", "Do not write output file.").
 		Variadic("packages", "Packages to parse.")
 
+	// Make config command.
 	config.Commands.Handle(
 		"makecfg",
 		"Write a default configuration file.",
@@ -107,6 +112,7 @@ func main() {
 		Optional("output-dir", "o", "Output directory.").
 		Boolean("force", "f", "Force overwrite if file already exists.")
 
+	// Parse.
 	if err := config.Parse(nil); err != nil && err != cmdline.ErrNoArgs {
 		log.Fatal(err)
 	}
