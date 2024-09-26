@@ -96,12 +96,32 @@ func (self Kind) String() string {
 }
 
 // Option defines an option.
+//
+// Several option types exist and define how option is parsed. For details see 
+// [Kind] enum set for details.
+//
+// An Option can map to a variable whose value is set from the option value via
+// [Option.Var] which must be a pointer to a supported type or any type that
+// supports conversion from a string by implementing the [Value] interface.
+//
+// Supported types are:
+// *bool, *string, *float32, *float64,
+// *int, *int8, *int16, *1nt32, *int64,
+// *uint, *uint8, *uint16, *u1nt32, *uint64
+// *time.Duration, *[]string, and any type supporting Value interface.
+//
+// If an unsupported type was set as [Option.Var] [Parse] will return a
+// conversion error.
 type Option struct {
 
 	// LongName is the long, more descriptive option name.
 	//
 	// It must contain no spaces and must be unique in Options as it is the
 	// primary key for Option addressing.
+	//
+	// It is used as the Name for [Indexed] and [Variadic] options in 
+	// registration methods. Those options cannot be addressed directly in 
+	// arguments and so require no [Option.ShortName].
 	//
 	// An argument with a long prefix is matched against this property.
 	LongName string
@@ -110,6 +130,8 @@ type Option struct {
 	//
 	// ShortName consists of a single alphanumeric. It is optional and if not
 	// empty must be unique in all Options ShortName properties.
+	//
+	// [Indexed] and [Variadic] options do not use ShortName.
 	//
 	// An argument with a short prefix is matched against this property.
 	ShortName string
@@ -131,7 +153,7 @@ type Option struct {
 	// See [Kind] for details.
 	Kind
 
-	// Values contains any string values passed to the option as arguments.
+	// Values contains any string values passed to the option in arguments.
 	//
 	// How Values is parsed depends on [Option.Kind].
 	Values
