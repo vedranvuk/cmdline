@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/vedranvuk/cmdline"
+	"github.com/vedranvuk/cmdline/cmd/cmdline/internal/generate"
 )
 
 const version = "0.0.0-dev"
@@ -49,18 +50,19 @@ func main() {
 		"generate",
 		"Generates go code that parses arguments to structs.",
 		func(c cmdline.Context) error {
-			var gc = &GenerateConfig{
-				Packages:                c.Values("packages"),
-				OutputFile:              c.Values("output-file").First(),
-				PackageName:             c.Values("package-name").First(),
-				TagKey:                  c.Values("tag-key").First(),
-				NoWrite:                 c.Parsed("no-write"),
-				Print:                   c.Parsed("print"),
-				ErrorOnUnsupportedField: c.Parsed("error-on-unsupported-field"),
-				HelpFromTag:             c.Parsed("help-from-tag"),
-				HelpFromDocs:            c.Parsed("help-from-docs"),
-			}
-			return gc.Generate()
+			return generate.Generate(
+				&generate.Config{
+					Packages:                c.Values("packages"),
+					OutputFile:              c.Values("output-file").First(),
+					PackageName:             c.Values("package-name").First(),
+					TagKey:                  c.Values("tag-key").First(),
+					NoWrite:                 c.Parsed("no-write"),
+					Print:                   c.Parsed("print"),
+					ErrorOnUnsupportedField: c.Parsed("error-on-unsupported-field"),
+					HelpFromTag:             c.Parsed("help-from-tag"),
+					HelpFromDocs:            c.Parsed("help-from-docs"),
+				},
+			)
 		},
 	).Options.
 		Required("package-name", "p", "Name of the package output go file belongs to.").

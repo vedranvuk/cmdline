@@ -1,4 +1,4 @@
-package main
+package generate
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"text/template/parse"
@@ -18,7 +19,7 @@ import (
 	"github.com/vedranvuk/strutils"
 )
 
-//go:embed generate.tmpl
+//go:embed generate.declarative.tmpl
 var resources embed.FS
 
 // FS returns the embedded resources as a file system.
@@ -33,79 +34,6 @@ const (
 	DefaultOutputFile = "cmdline.go"
 )
 
-// GenerateConfig is the configuration for a command that generates
-// [cmdline.Commands] from structs.
-//
-// For each source struct a command is generated with options that reflect
-// fields in the source struct.
-//
-// cmdline:"name=generate"
-// cmdline:"help=Generates commands from structs parsed from packages."
-type GenerateConfig struct {
-
-	// Packages is a list of packages to parse. It is a list of relative or full
-	// paths to go packages or import paths.
-	Packages []string `cmdline:"name=packages" json:"packages,omitempty"`
-
-	// OutputFile is the output file that will contain generated commands.
-	// It can be a full or relative path to a go file and if ommited a default
-	// value "cmdline.go" is used.
-	OutputFile string `cmdline:"name=output-file,required" json:"outputFile,omitempty"`
-
-	// PackageName is the name of the package generated file belongs to.
-	PackageName string `cmdline:"package-name" json:"packageName,omitempty"`
-
-	// TagKey is the name of the tag key whose value is read by cmdline from
-	// struct tags or doc comments.
-	//
-	// Default: DefaultTagKey.
-	TagKey string `cmdline:"name=tag-key" json:"tagName,omitempty"`
-
-	// HelpFromTag if true Adds option help from HelpTag.
-	HelpFromTag bool `cmdline:"name=help-from-tag" json:"helpFromTag,omitempty"`
-
-	// HelpFromDocs if true adds option help from srtuct field docs.
-	HelpFromDocs bool `cmdline:"name=help-from-docs" json:"helpFromDocs,omitempty"`
-
-	// ErrorOnUnsupportedField if true throws an error during parse if an
-	// unsupported field was found in a source struct.
-	//
-	// Default: false
-	ErrorOnUnsupportedField bool `cmdline:"name=error-on-unsupported-field" json:"errorOnUnsupportedField,omitempty"`
-
-	// Print prints the output to stdout.
-	//
-	// Default: true
-	Print bool `cmdline:"name=print-to-stdout" json:"print"`
-
-	// NoWrite if true disables writing to output file.
-	//
-	// Default: false
-	NoWrite bool `cmdline:"name=no-write"`
-
-	// BastConfig is the bastard ast config.
-	BastConfig *bast.Config `json:"-,"`
-
-	// Model is the parsed model.
-	Model `json:"-"`
-}
-
-// DefaultGenerateConfig returns the default [GenerateConfig].
-func DefaultGenerateConfig() (c *GenerateConfig) {
-	c = new(GenerateConfig)
-	c.TagKey = DefaultTagKey
-	c.OutputFile = DefaultOutputFile
-	c.HelpFromTag = true
-	c.HelpFromDocs = true
-	c.Print = true
-	c.NoWrite = false
-	c.ErrorOnUnsupportedField = false
-	c.BastConfig = bast.DefaultConfig()
-	c.BastConfig.TypeCheckingErrors = false
-	c.Model.ImportMap = make(ImportMap)
-	return
-}
-
 // PairKey is a known pair key read from the a cmdline tag value.
 //
 // It can appear in a struct tag or a doc comment of a struct being bound to.
@@ -114,6 +42,13 @@ func DefaultGenerateConfig() (c *GenerateConfig) {
 type PairKey = string
 
 const (
+	// IncludeKey is a placeholder key for when a command line command is to be
+	// generated for the struct but there is no need to specify any other
+	// properties for the generated code.
+	//
+	// By default, structs that have no cmdline tags are skipped.
+	IncludeKey PairKey = "include"
+
 	// NameKey is used on a source struct and specifies the name of the command
 	// that represents the struct being bound to.
 	//
@@ -123,6 +58,29 @@ const (
 	// It takes a single value in the key=value format that defines the command
 	// name. E.g.: name=MyStruct.
 	NameKey PairKey = "name"
+
+	// CmdNameKey specifies the name for the generated command.
+	CmdNameKey PairKey = "cmdName"
+
+	// VarNameKey names the generated command variable name.
+	//
+	// If undpecified name is generated from the command name such that the
+	// command name is appended with "Var" suffix, e.g. "CommandVar".
+	VarNameKey PairKey = "varName"
+
+	// NoDeclareVarKey specifies that the variable for the command should not be
+	// declared. This is useful if the variable is already declared in some
+	// other file in the package.
+	NoDeclareVarKey PairKey = "noDeclareVar"
+
+	// HandlerNameKey specifies the name for the command handler.
+	//
+	// If not specified defaults to name of generated command immediatelly
+	// followed with "Handler."
+	HandlerNameKey PairKey = "handlerName"
+
+	// GenHandlerKey if specified generates the handler stub for the command.
+	GenHandlerKey PairKey = "genHandler"
 
 	// HelpKey is used on a source struct and specifies the help text to be set
 	// with the command that will represent the struct.
@@ -154,86 +112,94 @@ const (
 	RequiredKey PairKey = "required"
 )
 
-// AllPairKeys is a slice of  all supported cmdline tags.
-var AllPairKeys = []string{NameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey}
+// knownPairKeys is a slice of all supported cmdline tag pair keys.
+var knownPairKeys = []string{
+	IncludeKey, NameKey, VarNameKey, NoDeclareVarKey, CmdNameKey, GenHandlerKey,
+	HandlerNameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey,
+}
 
-// Generate model.
+// Config is the [Generate] configuration.
+//
+// A [Config] with defaulted field values is returned by [Default].
+type Config struct {
 
-type (
-	// ImportPath is a package import path.
-	ImportPath = string
-	// PackageName is a base name of a package.
-	PackageName = string
-	// ImportMap is a map of package import paths to package base names.
-	ImportMap = map[ImportPath]PackageName
+	// Packages is a list of packages to parse. It is a list of relative or full
+	// paths to go packages or import paths.
+	//
+	// If no packages are specified parses all packages in the current
+	// directory recursively.
+	//
+	// Default: "./..."
+	Packages []string `cmdline:"name=packages" json:"packages,omitempty"`
 
-	// Model is the top level structure that holds the data from which to
-	// generate the output go source file containing generated commands.
-	Model struct {
-		Bast *bast.Bast
-		ImportMap
-		Commands
-	}
+	// OutputFile is the output file that will contain generated commands.
+	//
+	// It can be a full or relative path to a go file.
+	//
+	// Default "cmdline.go"
+	OutputFile string `cmdline:"name=output-file,required" json:"outputFile,omitempty"`
 
-	// Commands is a slice of commands to be generated.
-	Commands []Command
+	// PackageName is the name of the package generated file belongs to.
+	//
+	// Defaults to base name of the current directory.
+	PackageName string `cmdline:"package-name" json:"packageName,omitempty"`
 
-	// Command defines a cmdline.Command to be generated. It is generated from a
-	// source struct.
-	Command struct {
-		// Name is the command name. It is generated from the source struct type
-		// name or specified via cmdline tag in struct doc comments.
-		Name string
+	// TagKey is the name of the tag key whose value is read by cmdline from
+	// struct tags or doc comments.
+	//
+	// Default: "cmdline"
+	TagKey string `cmdline:"name=tag-key" json:"tagName,omitempty"`
 
-		// Help text is the Command help text generated from source struct
-		// doc comments.
-		Help string // help text
+	// HelpFromTag if true Adds option help from HelpTag.
+	//
+	// Default: true
+	HelpFromTag bool `cmdline:"name=help-from-tag" json:"helpFromTag,omitempty"`
 
-		// SourceStructType is the name of the struct type from which the
-		// Command is generated..
-		SourceStructType string
+	// HelpFromDocs if true adds option help from srtuct field docs.
+	//
+	// Default: true
+	HelpFromDocs bool `cmdline:"name=help-from-docs" json:"helpFromDocs,omitempty"`
 
-		// SourceStructPackageName is the base name of the package in which
-		// Source struct is defined. Used as selector prefix in generated
-		// source.
-		SourceStructPackageName string
+	// ErrorOnUnsupportedField if true throws an error during parse if an
+	// unsupported field was found in a source struct.
+	//
+	// Default: false
+	ErrorOnUnsupportedField bool `cmdline:"name=error-on-unsupported-field" json:"errorOnUnsupportedField,omitempty"`
 
-		// Options to generate.
-		Options []*Option
-	}
+	// Print prints the output to stdout.
+	//
+	// Default: true
+	Print bool `cmdline:"name=print-to-stdout" json:"print"`
 
-	// Option defines a cmdline.Option to generate in a command. It is generated
-	// from a source struct field.
-	Option struct {
-		// LongName is the long name for the Option.
-		// Set from the source field name or custom name from tag.
-		LongName string
+	// NoWrite if true disables writing to output file.
+	//
+	// Default: false
+	NoWrite bool `cmdline:"name=no-write"`
 
-		// ShortName is the short name for the option.
-		// Auto generated.
-		ShortName string
+	// BastConfig is the bastard ast config.
+	BastConfig *bast.Config `json:"-"`
 
-		// Help is the option help text.
-		Help string
+	// Model is the parsed model.
+	Model `json:"-"`
 
-		// FieldName is the source field name.
-		FieldName string
+	// bast is the parsed bast.
+	bast *bast.Bast `json:"-"`
+}
 
-		// FieldPath is the path through the nested structs to the struct field
-		// in the source struct.
-		FieldPath string
-
-		// BasicType is the determined basic type of the field for which Option
-		// is generated.
-		BasicType string
-
-		// Kind is the [cmdline.Option] kind to generate.
-		Kind cmdline.Kind
-	}
-)
-
-func (self Command) SourceStructSelector() string {
-	return self.SourceStructPackageName + "." + self.SourceStructType
+// Default returns the default [Config].
+func Default() (c *Config) {
+	c = new(Config)
+	c.TagKey = DefaultTagKey
+	c.OutputFile = DefaultOutputFile
+	c.HelpFromTag = true
+	c.HelpFromDocs = true
+	c.Print = true
+	c.NoWrite = false
+	c.ErrorOnUnsupportedField = false
+	c.BastConfig = bast.DefaultConfig()
+	c.BastConfig.TypeCheckingErrors = false
+	c.Model.ImportMap = make(ImportMap)
+	return
 }
 
 // Generate generates the go source code containing cmdline.Command definitions.
@@ -242,36 +208,36 @@ func (self Command) SourceStructSelector() string {
 // as generate source must have the NameTag at minimum.
 //
 // The struct has to have at least one cmdline tag to be parsed.
-func (self GenerateConfig) Generate() (err error) {
+func Generate(config *Config) (err error) {
 
-	if self.TagKey == "" {
-		self.TagKey = DefaultTagKey
+	if config.TagKey == "" {
+		config.TagKey = DefaultTagKey
 	}
-	if self.OutputFile == "" {
-		self.OutputFile = DefaultOutputFile
+	if config.OutputFile == "" {
+		config.OutputFile = DefaultOutputFile
 	}
-	if len(self.Packages) == 0 {
-		return errors.New("no packages specified")
+	if len(config.Packages) == 0 {
+		config.Packages = append(config.Packages, "./...")
 	}
 
-	if self.Model.Bast, err = bast.Load(self.BastConfig, self.Packages...); err != nil {
+	if config.bast, err = bast.Load(config.BastConfig, config.Packages...); err != nil {
 		return
 	}
 
-	if self.Model.ImportMap == nil {
-		self.Model.ImportMap = make(ImportMap)
+	if config.Model.ImportMap == nil {
+		config.Model.ImportMap = make(ImportMap)
 	}
-	self.Model.ImportMap["github.com/vedranvuk/cmdline"] = ""
+	config.Model.ImportMap["github.com/vedranvuk/cmdline"] = ""
 
-	for _, s := range self.Model.Bast.AllStructs() {
+	for _, s := range config.bast.AllStructs() {
 
 		var tag = strutils.Tag{
-			KnownPairKeys:     AllPairKeys,
-			TagKey:            self.TagKey,
+			KnownPairKeys:     knownPairKeys,
+			TagKey:            config.TagKey,
 			ErrorOnUnknownKey: true,
 		}
 
-		for _, line := range self.uncommentDocs(s.Doc) {
+		for _, line := range config.uncommentDocs(s.Doc) {
 			if err = tag.Parse(line); err != nil {
 				if err != strutils.ErrTagNotFound {
 					return
@@ -279,15 +245,20 @@ func (self GenerateConfig) Generate() (err error) {
 			}
 		}
 
-		if tag.Exists(IgnoreKey) {
+		if len(tag.Values) == 0 {
 			continue
 		}
 
 		var c = Command{
 			Name:                    s.Name,
+			VarName:                 tag.First(VarNameKey),
+			NoDeclareVar:            tag.Exists(NoDeclareVarKey),
+			CmdName:                 tag.First(CmdNameKey),
+			HandlerName:             tag.First(HandlerNameKey),
+			GenerateHandler:         tag.Exists(GenHandlerKey),
 			Help:                    strings.Join(tag.Values[HelpKey], "\n"),
 			SourceStructType:        s.Name,
-			SourceStructPackageName: s.GetPackage().Name,
+			SourceStructPackageName: filepath.Base(s.GetPackage().Path),
 		}
 
 		if tag.Exists(NameKey) {
@@ -306,16 +277,16 @@ func (self GenerateConfig) Generate() (err error) {
 			return
 		}
 
-		self.Model.ImportMap[s.GetPackage().Path] = s.GetPackage().Name
+		config.Model.ImportMap[s.GetPackage().Path] = s.GetPackage().Name
 
-		if err = self.parseStruct(s, "", &c); err != nil {
+		if err = config.parseStruct(s, "", &c); err != nil {
 			return
 		}
 
-		self.Model.Commands = append(self.Model.Commands, c)
+		config.Model.Commands = append(config.Model.Commands, c)
 	}
 
-	if err = self.generateOutput(); err != nil {
+	if err = config.generateOutput(); err != nil {
 		return
 	}
 
@@ -323,7 +294,7 @@ func (self GenerateConfig) Generate() (err error) {
 }
 
 // parseStruct parses a struct definition into a command.
-func (self *GenerateConfig) parseStruct(s *bast.Struct, path string, c *Command) (err error) {
+func (self *Config) parseStruct(s *bast.Struct, path string, c *Command) (err error) {
 
 	for _, f := range s.Fields.Values() {
 		if err = self.parseField(f, path, c); err != nil {
@@ -337,7 +308,7 @@ func (self *GenerateConfig) parseStruct(s *bast.Struct, path string, c *Command)
 }
 
 // parseField parses a struct field into a command option.
-func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (err error) {
+func (self *Config) parseField(f *bast.Field, path string, c *Command) (err error) {
 
 	if path != "" {
 		path += "."
@@ -352,7 +323,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 
 	if imp := f.ImportSpecBySelectorExpr(f.Type); imp != nil {
 		if _, name, valid := strings.Cut(f.Type, "."); valid {
-			if s := self.Model.Bast.PkgStruct(imp.Path, name); s != nil {
+			if s := self.bast.PkgStruct(imp.Path, name); s != nil {
 				self.Model.ImportMap[imp.Path] = imp.Name
 				return self.parseStruct(s, path, c)
 			}
@@ -360,7 +331,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 	}
 
 	var tag = strutils.Tag{
-		KnownPairKeys:     AllPairKeys,
+		KnownPairKeys:     knownPairKeys,
 		TagKey:            self.TagKey,
 		ErrorOnUnknownKey: true,
 	}
@@ -408,7 +379,7 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 		FieldName: f.Name,
 		FieldPath: path,
 	}
-	switch opt.BasicType = self.Model.Bast.ResolveBasicType(f.Type); opt.BasicType {
+	switch opt.BasicType = self.bast.ResolveBasicType(f.Type); opt.BasicType {
 	case "bool":
 		opt.Kind = cmdline.Boolean
 	case "int", "int8", "int16", "int32", "int64",
@@ -447,10 +418,12 @@ func (self *GenerateConfig) parseField(f *bast.Field, path string, c *Command) (
 }
 
 // generateOutput generates output go file with command definitions.
-func (self *GenerateConfig) generateOutput() (err error) {
+func (self *Config) generateOutput() (err error) {
+
+	const tmplName = "generate.declarative.tmpl"
 
 	var buf []byte
-	if buf, err = fs.ReadFile(FS(), "generate.tmpl"); err != nil {
+	if buf, err = fs.ReadFile(FS(), tmplName); err != nil {
 		return
 	}
 
@@ -515,7 +488,7 @@ func parseTemplateWithMode(name, text string, mode parse.Mode) (*template.Templa
 
 // uncommentDocs removes double-slash comment and trims leading and trailing
 // space prefix from each in in and returns it.
-func (self *GenerateConfig) uncommentDocs(in []string) (out []string) {
+func (self *Config) uncommentDocs(in []string) (out []string) {
 	out = make([]string, 0, len(in))
 	for _, line := range in {
 		out = append(out, strings.TrimSpace(strings.TrimPrefix(line, "//")))
@@ -526,7 +499,7 @@ func (self *GenerateConfig) uncommentDocs(in []string) (out []string) {
 // helpFromDoc generates help from tag and doc comment.
 //
 // It strips comment prefixes from each doc line.
-func (self *GenerateConfig) makeHelp(tag, doc []string) string {
+func (self *Config) makeHelp(tag, doc []string) string {
 	const col = 80
 	var out []string
 	var lt, ld, l = len(tag), len(doc), 0

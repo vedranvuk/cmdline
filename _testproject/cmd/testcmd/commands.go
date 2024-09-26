@@ -11,7 +11,7 @@ import (
 
 var (
 	optionsVar = new(models.Options)
-	configVar  = new(models.Config)
+	config     = new(models.Config)
 )
 
 var (
@@ -27,9 +27,9 @@ var (
 				Kind:      cmdline.Required,
 			},
 		},
-		Handler: handleOptions,
+		Handler: optionsCmdHandler,
 	}
-	configCmd = &cmdline.Command{
+	configCommand = &cmdline.Command{
 		Name: "config",
 		Help: "",
 		Options: cmdline.Options{
@@ -37,39 +37,39 @@ var (
 				LongName:  "Name",
 				ShortName: "n",
 				Help:      "Name is the name.",
-				Var:       &configVar.Name,
+				Var:       &config.Name,
 				Kind:      cmdline.Optional,
 			},
 			&cmdline.Option{
 				LongName:  "Age",
 				ShortName: "a",
 				Help:      "Age is the age.",
-				Var:       &configVar.Age,
+				Var:       &config.Age,
 				Kind:      cmdline.Required,
 			},
 			&cmdline.Option{
 				LongName:  "Subscribed",
 				ShortName: "s",
 				Help:      "Subscribed is usually true.",
-				Var:       &configVar.Subscribed,
+				Var:       &config.Subscribed,
 				Kind:      cmdline.Boolean,
 			},
 			&cmdline.Option{
 				LongName:  "DOB",
 				ShortName: "d",
 				Help:      "DOB is the darte of birth.",
-				Var:       &configVar.Sub.DOB,
+				Var:       &config.Sub.DOB,
 				Kind:      cmdline.Optional,
 			},
 			&cmdline.Option{
-				LongName:  "EMail",
+				LongName:  "email",
 				ShortName: "e",
 				Help:      "EMail is the email address.",
-				Var:       &configVar.Sub.EMail,
+				Var:       &config.Sub.EMail,
 				Kind:      cmdline.Optional,
 			},
 		},
-		Handler: handleConfig,
+		Handler: configCommandHandler,
 	}
 )
 
@@ -80,27 +80,20 @@ func cmdlineConfig() *cmdline.Config {
 		Args: os.Args[1:],
 		Commands: cmdline.Commands{
 			optionsCmd,
-			configCmd,
+			configCommand,
+			cmdline.HelpCommand(),
 		},
 	}
-
-	config.Commands.Register(
-		&cmdline.Command{
-			Name:    "help",
-			Help:    "Shows help.",
-			Handler: cmdline.HelpHandler,
-		},
-	)
 
 	return config
 }
 
-// handleOptions is a handler for the optionsCmd.
-func handleOptions(c cmdline.Context) error {
+// optionsCmdHandler is a handler for the optionsCmd.
+func optionsCmdHandler(c cmdline.Context) error {
 	return nil
 }
 
-// handleConfig is a handler for the configCmd.
-func handleConfig(c cmdline.Context) error {
+// configCommandHandler is a handler for the configCommand.
+func configCommandHandler(c cmdline.Context) error {
 	return nil
 }

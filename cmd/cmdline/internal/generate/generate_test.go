@@ -1,4 +1,4 @@
-package main
+package generate
 
 import (
 	"os"
@@ -15,13 +15,13 @@ func TestGenerate(t *testing.T) {
 
 	const tagName = "cmdline"
 
-	var config = DefaultGenerateConfig()
+	var config = Default()
 	config.Packages =   []string{"./..."}
 	config.PackageName = "main"
-	config.OutputFile = "../../_testproject/cmd/testcmd/commands.go"
-	config.BastConfig.Dir = "../../_testproject"
+	config.OutputFile = "../../../../_testproject/cmd/testcmd/commands.go"
+	config.BastConfig.Dir = "../../../../_testproject"
 
-	if err := config.Generate(); err != nil {
+	if err := Generate(config); err != nil {
 		t.Fatal(err)
 	}
 
