@@ -24,6 +24,7 @@ func main() {
 
 	var config = cmdline.DefaultOS()
 	config.PrintInDefinedOrder = true
+	config.Globals.Boolean("verbose", "v", "Be verbose")
 
 	// Help command and subcommands.
 	var help = config.Commands.Handle("help", "Show help.", func(c cmdline.Context) error {
@@ -57,20 +58,21 @@ func main() {
 		"generate",
 		"Generates go code that parses arguments to structs.",
 		func(c cmdline.Context) error {
-			return generate.Generate(
-				&generate.Config{
-					Packages:                c.Values("packages"),
-					OutputFile:              c.Values("output-file").First(),
-					PackageName:             c.Values("package-name").First(),
-					TagKey:                  c.Values("tag-key").First(),
-					NoWrite:                 c.Parsed("no-write"),
-					Print:                   c.Parsed("print"),
-					ErrorOnUnsupportedField: c.Parsed("error-on-unsupported-field"),
-					HelpFromTag:             c.Parsed("help-from-tag"),
-					HelpFromDocs:            c.Parsed("help-from-docs"),
-					BastConfig:              bast.DefaultConfig(),
-				},
-			)
+			var config = &generate.Config{
+				OutputFile:              c.Values("output-file").First(),
+				PackageName:             c.Values("package-name").First(),
+				TagKey:                  c.Values("tag-key").First(),
+				NoWrite:                 c.Parsed("no-write"),
+				Print:                   c.Parsed("print"),
+				ErrorOnUnsupportedField: c.Parsed("error-on-unsupported-field"),
+				HelpFromTag:             c.Parsed("help-from-tag"),
+				HelpFromDocs:            c.Parsed("help-from-docs"),
+				BastConfig:              bast.DefaultConfig(),
+			}
+			if c.Parsed("packages") {
+				config.Packages = c.Values("packages")
+			}
+			return generate.Generate(config)
 		},
 	).Options.
 		Required("package-name", "p", "Name of the package output go file belongs to.").
