@@ -108,6 +108,16 @@ type Config struct {
 	// defaulted to DefaultShortPrefix by Parse() if left empty.
 	ShortPrefix string
 
+	// PrintInDefinedOrder if true makes the print functions print options in
+	// the order they were defined. 
+	//
+	// If disabled options are printed in groups by type: 
+	//  Boolean, Optional, Required, Repeated, Indexed, Variadic
+	// then by order of definition.
+	//
+	// Default: false.
+	PrintInDefinedOrder bool
+
 	// context is the context given to Config.Parse and is set at that time.
 	// If nil context was given, Config.Parse sets it to context.Background().
 	context context.Context

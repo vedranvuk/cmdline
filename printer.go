@@ -48,6 +48,15 @@ func PrintCommand(w io.Writer, config *Config, command *Command, indent int) {
 // PrintOptions prints options to w idented with ident tabs using config.
 func PrintOptions(w io.Writer, config *Config, options Options, indent int) {
 	var wr = newTabWriter(w)
+	
+	if config.PrintInDefinedOrder {
+		for _, option := range options {
+			PrintOption(wr, config, option, indent)
+		}
+		wr.Flush()
+		return
+	}
+
 	for _, option := range options {
 		if option.Kind != Indexed {
 			continue

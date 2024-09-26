@@ -32,6 +32,9 @@ const (
 	// DefaultOutputFile is the default base name of an output go file that
 	// will contain generated code.
 	DefaultOutputFile = "cmdline.go"
+
+	// DefaultConfigFileName is the default cmdline config file name.
+	DefaultConfigFileName = "cmdline.json"
 )
 
 // PairKey is a known pair key read from the a cmdline tag value.
@@ -218,6 +221,13 @@ func Generate(config *Config) (err error) {
 	}
 	if len(config.Packages) == 0 {
 		config.Packages = append(config.Packages, "./...")
+	}
+	if config.PackageName == "" {
+		var dir string
+		if dir, err = os.Getwd(); err != nil {
+			return fmt.Errorf("get current dir: %w", err)
+		}
+		config.PackageName = filepath.Base(dir)
 	}
 
 	if config.bast, err = bast.Load(config.BastConfig, config.Packages...); err != nil {

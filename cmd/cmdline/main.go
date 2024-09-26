@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -17,6 +18,7 @@ const version = "0.0.0-dev"
 func main() {
 
 	var config = cmdline.DefaultOS()
+	config.PrintInDefinedOrder = true
 
 	// Help command and subcommands.
 	var help = config.Commands.Handle("help", "Show help.", func(c cmdline.Context) error {
@@ -74,6 +76,36 @@ func main() {
 		Boolean("print", "r", "Print output.").
 		Boolean("no-write", "n", "Do not write output file.").
 		Variadic("packages", "Packages to parse.")
+
+	config.Commands.Handle(
+		"makecfg",
+		"Write a default configuration file.",
+		func(c cmdline.Context) (err error) {
+			var (
+				cfg = generate.Default()
+				buf []byte
+				dir = c.Values("output-dir").First()
+			)
+			if buf, err = json.MarshalIndent(cfg, "", "\t"); err != nil {
+				return
+			}
+			if dir == "" {
+				dir = "."
+			}
+			var fn = filepath.Join(dir, generate.DefaultConfigFileName)
+			if _, err = os.Stat(fn); err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					return
+				}
+				if !c.Parsed("force") {
+					return errors.New("target config file already exists: " + fn)
+				}
+			}
+			return os.WriteFile(fn, buf, os.ModePerm)
+		},
+	).Options.
+		Optional("output-dir", "o", "Output directory.").
+		Boolean("force", "f", "Force overwrite if file already exists.")
 
 	if err := config.Parse(nil); err != nil && err != cmdline.ErrNoArgs {
 		log.Fatal(err)
