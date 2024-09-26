@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
+	"github.com/vedranvuk/bast"
 	"github.com/vedranvuk/cmdline"
 	"github.com/vedranvuk/cmdline/cmd/cmdline/internal/generate"
 )
@@ -67,6 +68,7 @@ func main() {
 					ErrorOnUnsupportedField: c.Parsed("error-on-unsupported-field"),
 					HelpFromTag:             c.Parsed("help-from-tag"),
 					HelpFromDocs:            c.Parsed("help-from-docs"),
+					BastConfig:              bast.DefaultConfig(),
 				},
 			)
 		},
