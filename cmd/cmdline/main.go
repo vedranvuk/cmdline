@@ -22,9 +22,10 @@ const version = "0.0.0-dev"
 
 func main() {
 
-	var config = cmdline.DefaultOS()
+	var (
+		config = cmdline.DefaultOS()
+	)
 	config.PrintInDefinedOrder = true
-	config.Globals.Boolean("verbose", "v", "Be verbose")
 
 	// Help command and subcommands.
 	var help = config.Commands.Handle("help", "Show help.", func(c cmdline.Context) error {
@@ -59,6 +60,7 @@ func main() {
 		"Generates go code that parses arguments to structs.",
 		func(c cmdline.Context) error {
 			var config = &generate.Config{
+				Packages:                c.Values("packages"),
 				OutputFile:              c.Values("output-file").First(),
 				PackageName:             c.Values("package-name").First(),
 				TagKey:                  c.Values("tag-key").First(),
@@ -66,18 +68,17 @@ func main() {
 				Print:                   c.Parsed("print"),
 				ErrorOnUnsupportedField: c.Parsed("error-on-unsupported-field"),
 				HelpFromTag:             c.Parsed("help-from-tag"),
-				HelpFromDocs:            c.Parsed("help-from-docs"),
+				HelpFromDocs:            c.Parsed("help-from-doc"),
 				BastConfig:              bast.DefaultConfig(),
 			}
-			if c.Parsed("packages") {
-				config.Packages = c.Values("packages")
-			}
+			config.BastConfig.Dir = c.Values("build-dir").First()
 			return generate.Generate(config)
 		},
 	).Options.
 		Required("package-name", "p", "Name of the package output go file belongs to.").
 		Optional("output-file", "o", "Output file name.").
 		Optional("tag-key", "t", "Name of the tag key to parse from docs and struct tags.").
+		Optional("build-dir", "b", "Specify build directory.").
 		Boolean("help-from-tag", "g", "Include help from tag.").
 		Boolean("help-from-doc", "d", "Include help from doc comments.").
 		Boolean("error-on-unsupported-field", "e", "Throws an error if unsupporrted field was encountered.").

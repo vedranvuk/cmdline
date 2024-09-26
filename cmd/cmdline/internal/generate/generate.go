@@ -453,7 +453,6 @@ func (self *Config) generateOutput() (err error) {
 	if err = t.Execute(bb, self); err != nil {
 		return fmt.Errorf("execute output template: %w", err)
 	}
-	fmt.Print(bb.String())
 
 	var source []byte
 	if source, err = format.Source(bb.Bytes()); err != nil {
