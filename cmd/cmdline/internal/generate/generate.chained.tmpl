@@ -2,8 +2,7 @@
 
 package {{.PackageName}}
 
-import (
-	{{range $path, $name := .ImportMap}}
+import ({{range $path, $name := .ImportMap}}
 	{{if eq $name ""}}"{{print $path}}"{{else}}{{print $name}} "{{print $path}}"{{end}}{{end}}
 )
 
