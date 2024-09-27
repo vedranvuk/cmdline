@@ -5,6 +5,7 @@
 package generate
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/vedranvuk/cmdline"
@@ -159,3 +160,13 @@ func (self Command) GetHandlerName() string {
 
 // Signature returns option cmdline registration function signature.
 func (self Option) Signature() string { return self.Kind.String() }
+
+// Declaration returns the option declaration in format
+func (self Option) Declaration(cmd *Command) string {
+	switch self.Kind {
+	case cmdline.Boolean:
+		return fmt.Sprintf("BooleanVar(%s, %s, %s, %s)", self.LongName, self.ShortName, self.Help, "")
+	default:
+		return ""
+	}
+}

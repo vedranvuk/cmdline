@@ -23,7 +23,7 @@ import (
 	"github.com/vedranvuk/strutils"
 )
 
-//go:embed generate.declarative.tmpl
+//go:embed generate.declarative.tmpl generate.chained.tmpl
 var resources embed.FS
 
 // FS returns the embedded resources as a file system.
@@ -217,6 +217,8 @@ func Default() (c *Config) {
 // The struct has to have at least one cmdline tag to be parsed.
 func Generate(config *Config) (err error) {
 
+	// TODO Check name colisions, vars, commands, etc.
+
 	if config.TagKey == "" {
 		config.TagKey = DefaultTagKey
 	}
@@ -316,7 +318,7 @@ func (self *Config) parseStruct(s *bast.Struct, path string, c *Command) (err er
 		}
 	}
 
-	generateShortNames(c)
+	generateOptionShortNames(c)
 
 	return nil
 }
@@ -435,6 +437,7 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 func (self *Config) generateOutput() (err error) {
 
 	const tmplName = "generate.declarative.tmpl"
+	// const tmplName = "generate.chained.tmpl"
 
 	var buf []byte
 	if buf, err = fs.ReadFile(FS(), tmplName); err != nil {
@@ -547,8 +550,8 @@ func (self *Config) makeHelp(tag, doc []string) string {
 	return strings.Join(out, "\\n")
 }
 
-// generateShortNames generates short Option names.
-func generateShortNames(c *Command) {
+// generateOptionShortNames generates short Option names.
+func generateOptionShortNames(c *Command) {
 	// Sequentially go through options, setting shortcmd to lowercase forst
 	// letter from longname. Each time check if it is already used and advance
 	// to next letter in longname until unique or exhausted.
