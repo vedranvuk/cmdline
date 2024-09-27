@@ -23,3 +23,4 @@ go.work
 # local stuff
 cmd/cmdline/cmdline
 cmd/cmdline/cmdline.exe
+_/testproject/cmd/testcmd/commands.go

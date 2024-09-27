@@ -291,7 +291,7 @@ func Generate(config *Config) (err error) {
 			return
 		}
 
-		config.Model.ImportMap[s.GetPackage().Path] = s.GetPackage().Name
+		config.Model.ImportMap[s.GetPackage().Path] = ""
 
 		if err = config.parseStruct(s, "", &c); err != nil {
 			return
