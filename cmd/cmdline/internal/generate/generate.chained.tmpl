@@ -11,35 +11,18 @@ import (
 	{{.GetStructVarName}} = new({{.StructSelector}}){{end}}
 ){{end}}
 
-var ({{range $command := .Commands}}
-	{{$command.GetCommandName}} = &cmdline.Command{
-		Name: "{{.Name}}",
-		Help: "{{.Help}}",
-		Options: cmdline.Options{ {{range $option := $command.Options}}
-			&cmdline.Option{
-				LongName: "{{$option.LongName}}",
-				ShortName: "{{$option.ShortName}}",
-				Help: "{{$option.Help}}",
-				Var: &{{$command.GetStructVarName}}.{{$option.FieldPath}},
-				Kind: cmdline.{{$option.Kind.String}},
-			},{{end}}
-		},
-		Handler: {{$command.GetHandlerName}},
-	}{{end}}
-)
-
 // parseCmdLine parses the command line into defined commands.
-func cmdlineConfig() (config *cmdline.Config) {
-	config = cmdline.DefaultOS(){{range $command := .Commands}}
-	config.Commands.Handle(
-		{{$command.Name}},
-		{{$command.Help}},
-		{{$command.GetHandlerName}},
-	){{if gt $command.Options.Count 0}}.Options.{{end}}{{range $option := $command.Options}}
-		{{$option.Kind.String}}Var({{$option}}){{end}}
-	{{end}}
-	config.Commands.Register(cmdline.HelpCommand())
-	return config
+func cmdlineConfig() (c *cmdline.Config) {
+	c = cmdline.DefaultOS(){{range $command := .Commands}}
+
+	c.Commands.
+		Handle("{{$command.Name}}", "{{$command.Help}}", {{$command.GetHandlerName}},
+	){{if gt $command.Options.Count 0}}.Options.{{range $idx, $option := $command.Options}}
+		{{$option.Declaration $command}}{{if not ($command.Options.IsLast $idx)}}.{{end}}{{end}}{{end}}{{end}}
+
+	c.Commands.Register(cmdline.HelpCommand())
+
+	return
 }
 
 {{range .Commands}}{{if not .GenerateHandler}}{{continue}}{{end}}

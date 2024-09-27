@@ -9,7 +9,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"go/format"
 	"io/fs"
 	"log"
 	"os"
@@ -28,6 +27,11 @@ var resources embed.FS
 
 // FS returns the embedded resources as a file system.
 func FS() embed.FS { return resources }
+
+const (
+	GenChainedTmplName     = "generate.chained.tmpl"
+	GenDeclarativeTmplName = "generate.declarative.tmpl"
+)
 
 const (
 	// DefaultTagKey is the default key of a tag value parsed by cmdline.
@@ -150,6 +154,15 @@ type Config struct {
 	//
 	// Defaults to base name of the current directory.
 	PackageName string `cmdline:"package-name" json:"packageName,omitempty"`
+
+	// Template is the filename of the template to use for code generation.
+	//
+	// If it is a value of [GenChainedTmplName] or [GenDeclarativeTmplName] 
+	// specified template is used, otherwise it is read from the file specified
+	// by the field value.
+	//
+	// Default: GenChainedTmplName
+	Template string `cmdline:"template" json:"template,omitempty"`
 
 	// TagKey is the name of the tag key whose value is read by cmdline from
 	// struct tags or doc comments.
@@ -436,8 +449,8 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 // generateOutput generates output go file with command definitions.
 func (self *Config) generateOutput() (err error) {
 
-	const tmplName = "generate.declarative.tmpl"
-	// const tmplName = "generate.chained.tmpl"
+	// const tmplName = "generate.declarative.tmpl"
+	const tmplName = "generate.chained.tmpl"
 
 	var buf []byte
 	if buf, err = fs.ReadFile(FS(), tmplName); err != nil {
@@ -458,9 +471,10 @@ func (self *Config) generateOutput() (err error) {
 	}
 
 	var source []byte
-	if source, err = format.Source(bb.Bytes()); err != nil {
-		return fmt.Errorf("format output: %w", err)
-	}
+	// if source, err = format.Source(bb.Bytes()); err != nil {
+	// 	return fmt.Errorf("format output: %w", err)
+	// }
+	source = bb.Bytes()
 
 	if self.Print {
 		if _, err = fmt.Print(string(source)); err != nil {

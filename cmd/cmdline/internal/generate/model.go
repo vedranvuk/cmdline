@@ -78,8 +78,11 @@ type (
 		SourceStructPackageName string
 
 		// Options to generate.
-		Options []*Option
+		Options
 	}
+
+	// Options is a slice of *Option.
+	Options []*Option
 
 	// Option defines a cmdline.Option to generate in a command. It is generated
 	// from a source struct field.
@@ -158,6 +161,11 @@ func (self Command) GetHandlerName() string {
 	return self.GetCommandName() + "Handler"
 }
 
+// Count returns number of [Option] in [Options].
+func (self Options) Count() int { return len(self) }
+
+func (self Options) IsLast(index int) bool { return index == len(self) - 1 }
+
 // Signature returns option cmdline registration function signature.
 func (self Option) Signature() string { return self.Kind.String() }
 
@@ -165,7 +173,15 @@ func (self Option) Signature() string { return self.Kind.String() }
 func (self Option) Declaration(cmd *Command) string {
 	switch self.Kind {
 	case cmdline.Boolean:
-		return fmt.Sprintf("BooleanVar(%s, %s, %s, %s)", self.LongName, self.ShortName, self.Help, "")
+		return fmt.Sprintf("BooleanVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+	case cmdline.Optional:
+		return fmt.Sprintf("OptionalVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+	case cmdline.Required:
+		return fmt.Sprintf("RequiredVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+	case cmdline.Repeated:
+		return fmt.Sprintf("RepeatedVar(\"%s\", \"%s\", &%s)", self.LongName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+	case cmdline.Variadic:
+		return fmt.Sprintf("VariadicVar(\"%s\", \"%s\", &%s)", self.LongName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
 	default:
 		return ""
 	}

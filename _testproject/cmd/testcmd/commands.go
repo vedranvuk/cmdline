@@ -3,89 +3,47 @@
 package main
 
 import (
+	
 	"github.com/vedranvuk/cmdline"
 	"github.com/vedranvuk/cmdline/_testproject/pkg/models"
 )
 
 var (
 	optionsVar = new(models.Options)
-	config     = new(models.Config)
-)
-
-var (
-	optionsCmd = &cmdline.Command{
-		Name: "options",
-		Help: "Defines a set of options.",
-		Options: cmdline.Options{
-			&cmdline.Option{
-				LongName:  "outDir",
-				ShortName: "o",
-				Help:      "Output directory. ",
-				Var:       &optionsVar.OutputDirectory,
-				Kind:      cmdline.Required,
-			},
-		},
-		Handler: optionsCmdHandler,
-	}
-	configCommand = &cmdline.Command{
-		Name: "config",
-		Help: "",
-		Options: cmdline.Options{
-			&cmdline.Option{
-				LongName:  "Name",
-				ShortName: "n",
-				Help:      "Name is the name.",
-				Var:       &config.Name,
-				Kind:      cmdline.Optional,
-			},
-			&cmdline.Option{
-				LongName:  "Age",
-				ShortName: "a",
-				Help:      "Age is the age.",
-				Var:       &config.Age,
-				Kind:      cmdline.Required,
-			},
-			&cmdline.Option{
-				LongName:  "Subscribed",
-				ShortName: "s",
-				Help:      "Subscribed is usually true.",
-				Var:       &config.Subscribed,
-				Kind:      cmdline.Boolean,
-			},
-			&cmdline.Option{
-				LongName:  "DOB",
-				ShortName: "d",
-				Help:      "DOB is the darte of birth.",
-				Var:       &config.Sub.DOB,
-				Kind:      cmdline.Optional,
-			},
-			&cmdline.Option{
-				LongName:  "email",
-				ShortName: "e",
-				Help:      "EMail is the email address.",
-				Var:       &config.Sub.EMail,
-				Kind:      cmdline.Optional,
-			},
-		},
-		Handler: configCommandHandler,
-	}
+	config = new(models.Config)
 )
 
 // parseCmdLine parses the command line into defined commands.
-func cmdlineConfig() (config *cmdline.Config) {
-	config = cmdline.DefaultOS()
-	config.Commands.Register(optionsCmd)
-	config.Commands.Register(configCommand)
-	config.Commands.Register(cmdline.HelpCommand())
-	return config
+func cmdlineConfig() (c *cmdline.Config) {
+	c = cmdline.DefaultOS()
+
+	c.Commands.
+		Handle("options", "Defines a set of options.", optionsCmdHandler,
+	).Options.
+		RequiredVar("outDir", "o", "Output directory. ", &optionsVar.OutputDirectory)
+
+	c.Commands.
+		Handle("config", "", configCommandHandler,
+	).Options.
+		OptionalVar("Name", "n", "Name is the name.", &config.Name).
+		RequiredVar("Age", "a", "Age is the age.", &config.Age).
+		BooleanVar("Subscribed", "s", "Subscribed is usually true.", &config.Subscribed).
+		OptionalVar("DOB", "d", "DOB is the darte of birth.", &config.Sub.DOB).
+		OptionalVar("email", "e", "EMail is the email address.", &config.Sub.EMail)
+
+	c.Commands.Register(cmdline.HelpCommand())
+
+	return
 }
+
 
 // optionsCmdHandler is a handler for the optionsCmd.
 func optionsCmdHandler(c cmdline.Context) error {
 	return nil
 }
-
 // configCommandHandler is a handler for the configCommand.
 func configCommandHandler(c cmdline.Context) error {
 	return nil
 }
+
+
