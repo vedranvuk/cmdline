@@ -3,8 +3,8 @@ module github.com/vedranvuk/cmdline
 go 1.23.1
 
 require (
-	github.com/vedranvuk/bast v0.0.0-20240923165833-60c78d6a7b48
-	github.com/vedranvuk/strutils v0.0.0-20240920211532-921435b35fcf
+	github.com/vedranvuk/bast v0.0.0-20240929120422-2c6245b25ba6
+	github.com/vedranvuk/strutils v0.0.0-20240929151339-c677c08dd040
 )
 
 require (
