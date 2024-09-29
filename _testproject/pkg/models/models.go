@@ -5,13 +5,13 @@ import "time"
 // Options is a demo struct.
 // cmdline:"name=options"
 // cmdline:"help=Defines a set of options."
-// cmdline:"genHandler"
+// cmdline:"genTarget,genHandler"
 type Options struct {
 	//cmdline:"help=Output directory."
 	OutputDirectory string `cmdline:"name=outDir,required"`
 }
 
-// cmdline:"name=config,varName=config,cmdName=configCommand,genHandler"
+// cmdline:"name=config,targetName=config,commandName=configCommand,genHandler"
 type Config struct {
 	// Name is the name.
 	Name string `cmdline:"optional"`

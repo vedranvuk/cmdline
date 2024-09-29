@@ -8,12 +8,12 @@ import (
 	{{if eq $name ""}}"{{print $path}}"{{else}}{{print $name}} "{{print $path}}"{{end}}{{end}}
 )
 
-{{if .AnyStructVars}}var ({{range .Commands}}{{if .NoDeclareVar}}{{ continue }}{{end}}
-	{{.GetStructVarName}} = new({{.StructSelector}}){{end}}
+{{if .AnyTargets}}var ({{range .Commands}}{{if not .GenTarget}}{{ continue }}{{end}}
+	{{.TargetName}} = new({{.TargetSelector}}){{end}}
 ){{end}}
 
 var ({{range $command := .Commands}}
-	{{$command.GetCommandName}} = &cmdline.Command{
+	{{$command.CommandName}} = &cmdline.Command{
 		Name: "{{.Name}}",
 		Help: "{{.Help}}",
 		Options: cmdline.Options{ {{range $option := $command.Options}}
@@ -21,11 +21,11 @@ var ({{range $command := .Commands}}
 				LongName: "{{$option.LongName}}",
 				ShortName: "{{$option.ShortName}}",
 				Help: "{{$option.Help}}",
-				Var: &{{$command.GetStructVarName}}.{{$option.FieldPath}},
+				Var: &{{$command.TargetName}}.{{$option.SourceFieldPath}},
 				Kind: cmdline.{{$option.Kind.String}},
 			},{{end}}
 		},
-		Handler: {{$command.GetHandlerName}},
+		Handler: {{$command.HandlerName}},
 	}{{end}}
 )
 
@@ -35,7 +35,7 @@ func cmdlineConfig() *cmdline.Config {
 	var config = &cmdline.Config{
 		Args: os.Args[1:],
 		Commands: cmdline.Commands{ {{range .Commands}}
-			{{.GetCommandName}},{{end}}
+			{{.CommandName}},{{end}}
 			cmdline.HelpCommand(),
 		},
 	}
@@ -43,9 +43,9 @@ func cmdlineConfig() *cmdline.Config {
 	return config
 }
 
-{{range .Commands}}{{if not .GenerateHandler}}{{continue}}{{end}}
-// {{.GetHandlerName}} is a handler for the {{.GetCommandName}}.
-func {{.GetHandlerName}}(c cmdline.Context) error {
+{{range .Commands}}{{if not .GenHandler}}{{continue}}{{end}}
+// {{.HandlerName}} is a handler for the {{.CommandName}}.
+func {{.HandlerName}}(c cmdline.Context) error {
 	return nil
 }{{end}}
 

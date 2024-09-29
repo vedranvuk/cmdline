@@ -6,7 +6,6 @@ package generate
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/vedranvuk/cmdline"
 )
@@ -39,43 +38,47 @@ type (
 		//
 		Name string
 
-		// CmdName is the name of generated command.
+		// Help text is the Command help text generated from source struct
+		// doc comments.
+		Help string
+
+		// CommandName is the name of generated command.
 		//
 		// If not specified defaults to lowercase name of source struct
 		// immediately followed with "Cmd".
-		CmdName string
+		CommandName string
 
-		// VarName is the name for the generated Command variable specified
+		// TargetName is the name for the generated Command variable specified
 		// via tag.
-		VarName string
-
-		// NoDeclareVar is specified via struct tag and specifies that the
-		// variable for the command should not be declared.
-		NoDeclareVar bool
+		TargetName string
 
 		// HandlerName is the name of the handler function.
 		// If not specified a handler name is generated from keyword "handle"
 		// immediately followed by Command name.
 		HandlerName string
 
-		// GenerateHandler if true generates a handler stub for the generated
+		// GenTarget is specified via struct tag and specifies that the
+		// variable for the command should not be declared.
+		GenTarget bool
+
+		// GenHandler if true generates a handler stub for the generated
 		// command.
-		GenerateHandler bool
+		GenHandler bool
 
-		// Help text is the Command help text generated from source struct
-		// doc comments.
-		Help string
-
-		// SourceStructType is the name of the struct type from which the
+		// SourceType is the name of the struct type from which the
 		// Command is generated.
-		SourceStructType string
+		SourceType string
 
-		// SourceStructPackageName is the base name of the package in which
+		// SourcePackageName is the base name of the package in which
 		// Source struct is defined.
 		//
 		// Currently it will always be the base name of the package path where
 		// the source struct is defined.
-		SourceStructPackageName string
+		SourcePackageName string
+
+		// SourcePackagePath is the path of the package that contains the
+		// struct.
+		SourcePackagePath string
 
 		// Options to generate.
 		Options
@@ -98,73 +101,53 @@ type (
 		// Help is the option help text.
 		Help string
 
-		// FieldName is the source field name.
-		FieldName string
+		// SourceFieldName is the source field name.
+		SourceFieldName string
 
-		// FieldPath is the path through the nested structs to the struct field
+		// SourceFieldPath is the path through the nested structs to the struct field
 		// in the source struct.
-		FieldPath string
+		SourceFieldPath string
 
-		// BasicType is the determined basic type of the field for which Option
+		// SourceBasicType is the determined basic type of the field for which Option
 		// is generated.
-		BasicType string
+		SourceBasicType string
 
 		// Kind is the [cmdline.Option] kind to generate.
 		Kind cmdline.Kind
 	}
 )
 
-// AnyStructVars returns true if there are any structs for receiving command
+// AnyTargets returns true if there are any structs for receiving command
 // option values to declare.
-func (self Model) AnyStructVars() (b bool) {
+func (self Model) AnyTargets() (b bool) {
 	for _, command := range self.Commands {
-		if b = !command.NoDeclareVar; b {
+		if b = !command.GenTarget; b {
 			break
 		}
 	}
 	return
 }
 
-// GetCommandName returns the command name.
-func (self Command) GetCommandName() string {
-	if self.CmdName != "" {
-		return self.CmdName
+func (self Model) Imports() []string {
+	for _, command := range self.Commands {
+		for _, option := range command.Options {
+			_ = option
+		}
 	}
-	return strings.ToLower(self.SourceStructType) + "Cmd"
+	return nil
 }
 
-// StructSelector returns a selector expression string that adresses the
+// TargetSelector returns a selector expression string that adresses the
 // source struct in the package where it is defined.
 // E.g.: "models.Struct"
-func (self Command) StructSelector() string {
-	return self.SourceStructPackageName + "." + self.SourceStructType
-}
-
-// GetStructVarName returns the variable name.
-//
-// It returns [Command.VarName] if not empty, otherwise concats [Command.Name] and
-// "Var".
-func (self Command) GetStructVarName() string {
-	if self.VarName != "" {
-		return self.VarName
-	}
-	return self.Name + "Var"
-}
-
-// GetHandlerName returns the handler name.
-// If [Command.HandlerName] is not empty returns it oterwise the command name
-// immediately followed by "Handler".
-func (self Command) GetHandlerName() string {
-	if self.HandlerName != "" {
-		return self.HandlerName
-	}
-	return self.GetCommandName() + "Handler"
+func (self Command) TargetSelector() string {
+	return self.SourcePackageName + "." + self.SourceType
 }
 
 // Count returns number of [Option] in [Options].
 func (self Options) Count() int { return len(self) }
 
-func (self Options) IsLast(index int) bool { return index == len(self) - 1 }
+func (self Options) IsLast(index int) bool { return index == len(self)-1 }
 
 // Signature returns option cmdline registration function signature.
 func (self Option) Signature() string { return self.Kind.String() }
@@ -173,15 +156,15 @@ func (self Option) Signature() string { return self.Kind.String() }
 func (self Option) Declaration(cmd *Command) string {
 	switch self.Kind {
 	case cmdline.Boolean:
-		return fmt.Sprintf("BooleanVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+		return fmt.Sprintf("BooleanVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
 	case cmdline.Optional:
-		return fmt.Sprintf("OptionalVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+		return fmt.Sprintf("OptionalVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
 	case cmdline.Required:
-		return fmt.Sprintf("RequiredVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+		return fmt.Sprintf("RequiredVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
 	case cmdline.Repeated:
-		return fmt.Sprintf("RepeatedVar(\"%s\", \"%s\", &%s)", self.LongName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+		return fmt.Sprintf("RepeatedVar(\"%s\", \"%s\", &%s)", self.LongName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
 	case cmdline.Variadic:
-		return fmt.Sprintf("VariadicVar(\"%s\", \"%s\", &%s)", self.LongName, self.Help, cmd.GetStructVarName() + "." + self.FieldPath)
+		return fmt.Sprintf("VariadicVar(\"%s\", \"%s\", &%s)", self.LongName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
 	default:
 		return ""
 	}

@@ -24,6 +24,7 @@ func TestGenerate(t *testing.T) {
 	config.PackageName = "main"
 	config.OutputFile = "../../../../_testproject/cmd/testcmd/commands.go"
 	config.BastConfig.Dir = "../../../../_testproject"
+	config.Print = true
 
 	if err := Generate(config); err != nil {
 		t.Fatal(err)

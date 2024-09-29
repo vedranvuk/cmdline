@@ -9,6 +9,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"go/format"
 	"io/fs"
 	"log"
 	"os"
@@ -29,8 +30,8 @@ var resources embed.FS
 func FS() embed.FS { return resources }
 
 const (
-	GenChainedTmplName     = "generate.chained.tmpl"
-	GenDeclarativeTmplName = "generate.declarative.tmpl"
+	ChainedTmplName     = "generate.chained.tmpl"
+	DeclarativeTmplName = "generate.declarative.tmpl"
 )
 
 const (
@@ -53,45 +54,21 @@ const (
 type PairKey = string
 
 const (
-	// IncludeKey is a placeholder key for when a command line command is to be
-	// generated for the struct but there is no need to specify any other
-	// properties for the generated code.
+	// IncludeKey is a placeholder key that can be used for when a command is
+	// to be generated but there is no need to specify any other options for
+	// generated code.
 	//
-	// By default, structs that have no cmdline tags are skipped.
+	// By default, structs that have no cmdline tags are skipped so a struct can
+	// be tagged with this key to be included and use all default options.
+	//
+	// It takes no value.
 	IncludeKey PairKey = "include"
 
-	// NameKey is used on a source struct and specifies the name of the command
-	// that represents the struct being bound to.
+	// IgnoreKey is read from struct fields and specifies that the tagged field
+	// should be excluded when generating command options from fields.
 	//
-	// It is also the name of the generated variable of a struct manipulated by
-	// the command options.
-	//
-	// It takes a single value in the key=value format that defines the command
-	// name. E.g.: name=MyStruct.
-	NameKey PairKey = "name"
-
-	// CmdNameKey specifies the name for the generated command.
-	CmdNameKey PairKey = "cmdName"
-
-	// VarNameKey names the generated command variable name.
-	//
-	// If undpecified name is generated from the command name such that the
-	// command name is appended with "Var" suffix, e.g. "CommandVar".
-	VarNameKey PairKey = "varName"
-
-	// NoDeclareVarKey specifies that the variable for the command should not be
-	// declared. This is useful if the variable is already declared in some
-	// other file in the package.
-	NoDeclareVarKey PairKey = "noDeclareVar"
-
-	// HandlerNameKey specifies the name for the command handler.
-	//
-	// If not specified defaults to name of generated command immediatelly
-	// followed with "Handler."
-	HandlerNameKey PairKey = "handlerName"
-
-	// GenHandlerKey if specified generates the handler stub for the command.
-	GenHandlerKey PairKey = "genHandler"
+	// It takes no values.
+	IgnoreKey PairKey = "ignore"
 
 	// HelpKey is used on a source struct and specifies the help text to be set
 	// with the command that will represent the struct.
@@ -104,11 +81,52 @@ const (
 	// when cmdline config help is requested.
 	HelpKey PairKey = "help"
 
-	// IgnoreKey is read from struct fields and specifies that the tagged field
-	// should be excluded from generated command options.
+	// NameKey is used on a source struct and specifies the name of the command
+	// that represents the struct being bound to.
+	//
+	// This name is the name by which source struct commands and their field
+	// options are addressed from the command line.
+	//
+	// It takes a single value in the key=value format that defines the command
+	// name. E.g.: name=MyStruct.
+	NameKey PairKey = "name"
+
+	// CommandName specifies the name for the generated command.
+	CommandName PairKey = "commandName"
+
+	// TargetName names variable of the output struct command options will
+	// write to.
+	//
+	// This may name a variable declared in some other package file that the
+	// generated command options can adress and write from arguments or name
+	// the variable that will be generated in the output file so some other file
+	// in the package can address it.
+	//
+	// If unspecified, name is generated from the command name such that the
+	// command name is appended with "Var" suffix, e.g. "CommandVar".
+	TargetName PairKey = "targetName"
+
+	// HandlerName specifies the name for the command handler.
+	//
+	// If not specified defaults to name of generated command immediatelly
+	// followed with "Handler."
+	HandlerName PairKey = "hndlerName"
+
+	// GenTargetKey specifies that the variable for the command should be declared.
+	//
+	// This is useful if the variable is already declared in some
+	// other file in the package.
+	//
+	// Generated commands will still address the target variable defined by
+	// [VarNameKey].
 	//
 	// It takes no values.
-	IgnoreKey PairKey = "ignore"
+	GenTargetKey PairKey = "genTarget"
+
+	// GenHandlerKey if specified will generate the command handler stub.
+	//
+	// It takes no values.
+	GenHandlerKey PairKey = "genHandler"
 
 	// OptionalKey is read from struct fields and specifies that the tagged
 	// field should use the Optional option.
@@ -125,8 +143,8 @@ const (
 
 // knownPairKeys is a slice of all supported cmdline tag pair keys.
 var knownPairKeys = []string{
-	IncludeKey, NameKey, VarNameKey, NoDeclareVarKey, CmdNameKey, GenHandlerKey,
-	HandlerNameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey,
+	IncludeKey, NameKey, TargetName, GenTargetKey, CommandName, GenHandlerKey,
+	HandlerName, HelpKey, IgnoreKey, OptionalKey, RequiredKey,
 }
 
 // Config is the [Generate] configuration.
@@ -157,7 +175,7 @@ type Config struct {
 
 	// Template is the filename of the template to use for code generation.
 	//
-	// If it is a value of [GenChainedTmplName] or [GenDeclarativeTmplName] 
+	// If it is a value of [GenChainedTmplName] or [GenDeclarativeTmplName]
 	// specified template is used, otherwise it is read from the file specified
 	// by the field value.
 	//
@@ -248,6 +266,9 @@ func Generate(config *Config) (err error) {
 		}
 		config.PackageName = filepath.Base(dir)
 	}
+	if config.Template == "" {
+		config.Template = ChainedTmplName
+	}
 
 	if config.bast, err = bast.Load(config.BastConfig, config.Packages...); err != nil {
 		return
@@ -279,15 +300,16 @@ func Generate(config *Config) (err error) {
 		}
 
 		var c = Command{
-			Name:                    s.Name,
-			VarName:                 tag.First(VarNameKey),
-			NoDeclareVar:            tag.Exists(NoDeclareVarKey),
-			CmdName:                 tag.First(CmdNameKey),
-			HandlerName:             tag.First(HandlerNameKey),
-			GenerateHandler:         tag.Exists(GenHandlerKey),
-			Help:                    strings.Join(tag.Values[HelpKey], "\n"),
-			SourceStructType:        s.Name,
-			SourceStructPackageName: filepath.Base(s.GetPackage().Path),
+			Name:              s.Name,
+			TargetName:        tag.First(TargetName),
+			GenTarget:         tag.Exists(GenTargetKey),
+			CommandName:       tag.First(CommandName),
+			HandlerName:       tag.First(HandlerName),
+			GenHandler:        tag.Exists(GenHandlerKey),
+			Help:              strings.Join(tag.Values[HelpKey], "\n"),
+			SourceType:        s.Name,
+			SourcePackagePath: s.GetPackage().Path,
+			SourcePackageName: filepath.Base(s.GetPackage().Path),
 		}
 
 		if tag.Exists(NameKey) {
@@ -295,6 +317,15 @@ func Generate(config *Config) (err error) {
 				err = errors.New("invalid name tag, no value")
 			}
 			c.Name = tag.First(NameKey)
+		}
+		if c.TargetName == "" {
+			c.TargetName = c.Name + "Var"
+		}
+		if c.CommandName == "" {
+			c.CommandName = c.SourceType + "Cmd"
+		}
+		if c.HandlerName == "" {
+			c.HandlerName = c.CommandName + "Handler"
 		}
 
 		var (
@@ -402,13 +433,13 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 	}
 
 	var opt = &Option{
-		LongName:  name,
-		ShortName: "",
-		Help:      self.makeHelp(tag.Values[HelpKey], f.Doc),
-		FieldName: f.Name,
-		FieldPath: path,
+		LongName:        name,
+		ShortName:       "",
+		Help:            self.makeHelp(tag.Values[HelpKey], f.Doc),
+		SourceFieldName: f.Name,
+		SourceFieldPath: path,
 	}
-	switch opt.BasicType = self.bast.ResolveBasicType(f.Type); opt.BasicType {
+	switch opt.SourceBasicType = self.bast.ResolveBasicType(f.Type); opt.SourceBasicType {
 	case "bool":
 		opt.Kind = cmdline.Boolean
 	case "int", "int8", "int16", "int32", "int64",
@@ -437,7 +468,7 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 		log.Printf("Cannot determine basic type for field %s, skipping.\n", f.Type)
 		return nil
 	default:
-		log.Printf("Unknown basic type: %s\n", opt.BasicType)
+		log.Printf("Unknown basic type: %s\n", opt.SourceBasicType)
 		return nil
 	}
 
@@ -449,39 +480,31 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 // generateOutput generates output go file with command definitions.
 func (self *Config) generateOutput() (err error) {
 
-	// const tmplName = "generate.declarative.tmpl"
-	const tmplName = "generate.chained.tmpl"
+	var (
+		t  *template.Template
+		tt string
+		bb = bytes.NewBuffer(nil)
+		m  = parse.ParseComments | parse.SkipFuncCheck
+		s  []byte
+	)
 
-	var buf []byte
-	if buf, err = fs.ReadFile(FS(), tmplName); err != nil {
+	if tt, err = loadTemplate(self.Template); err != nil {
 		return
 	}
-
-	var (
-		t *template.Template
-		m = parse.ParseComments | parse.SkipFuncCheck
-	)
-	if t, err = parseTemplateWithMode("cmdline", string(buf), m); err != nil {
+	if t, err = parseTemplateWithMode("cmdline", tt, m); err != nil {
 		return fmt.Errorf("parse output template: %w", err)
 	}
-
-	var bb = bytes.NewBuffer(nil)
 	if err = t.Execute(bb, self); err != nil {
 		return fmt.Errorf("execute output template: %w", err)
 	}
-
-	var source []byte
-	// if source, err = format.Source(bb.Bytes()); err != nil {
-	// 	return fmt.Errorf("format output: %w", err)
-	// }
-	source = bb.Bytes()
-
+	if s, err = format.Source(bb.Bytes()); err != nil {
+		return fmt.Errorf("format output: %w", err)
+	}
 	if self.Print {
-		if _, err = fmt.Print(string(source)); err != nil {
+		if _, err = fmt.Print(string(s)); err != nil {
 			return fmt.Errorf("print to stdout: %w", err)
 		}
 	}
-
 	if !self.NoWrite {
 		var file *os.File
 		if file, err = os.OpenFile(
@@ -492,7 +515,7 @@ func (self *Config) generateOutput() (err error) {
 			return
 		}
 		defer file.Close()
-		if _, err = file.Write(source); err != nil {
+		if _, err = file.Write(s); err != nil {
 			return fmt.Errorf("write output file: %w", err)
 		}
 	}
@@ -500,19 +523,40 @@ func (self *Config) generateOutput() (err error) {
 	return nil
 }
 
+// loadTemplate loads the template text depending on filename.
+// If filename is one of built-in template names it is loaded.
+// If filename is any other filename it is loaded from disk.
+func loadTemplate(filename string) (text string, err error) {
+	var buf []byte
+	switch filename {
+	case ChainedTmplName, DeclarativeTmplName:
+		buf, err = fs.ReadFile(FS(), filename)
+	default:
+		buf, err = os.ReadFile(filename)
+	}
+	if err != nil {
+		return "", fmt.Errorf("load template: %w", err)
+	}
+	return string(buf), nil
+}
+
 // parseTemplateWithMode parses a template with parse mode.
 // Downside is that built in funcmap is not added.
 func parseTemplateWithMode(name, text string, mode parse.Mode) (*template.Template, error) {
+
 	var (
 		t       = parse.New(name)
 		treeSet = make(map[string]*parse.Tree)
 	)
+
 	t.Mode = mode
 	var tree, err = t.Parse(text, "{{", "}}", treeSet)
 	if err != nil {
 		return nil, err
 	}
+
 	tmpl := template.New(name)
+
 	return tmpl.AddParseTree(name, tree)
 }
 
