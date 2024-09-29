@@ -122,7 +122,7 @@ type (
 // option values to declare.
 func (self Model) AnyTargets() (b bool) {
 	for _, command := range self.Commands {
-		if b = !command.GenTarget; b {
+		if b = command.GenTarget; b {
 			break
 		}
 	}
