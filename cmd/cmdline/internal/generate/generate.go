@@ -91,10 +91,10 @@ const (
 	// name. E.g.: name=MyStruct.
 	NameKey PairKey = "name"
 
-	// CommandName specifies the name for the generated command.
-	CommandName PairKey = "commandName"
+	// CommandNameKey specifies the name for the generated command.
+	CommandNameKey PairKey = "commandName"
 
-	// TargetName names variable of the output struct command options will
+	// TargetNameKey names variable of the output struct command options will
 	// write to.
 	//
 	// This may name a variable declared in some other package file that the
@@ -104,13 +104,13 @@ const (
 	//
 	// If unspecified, name is generated from the command name such that the
 	// command name is appended with "Var" suffix, e.g. "CommandVar".
-	TargetName PairKey = "targetName"
+	TargetNameKey PairKey = "targetName"
 
-	// HandlerName specifies the name for the command handler.
+	// HandlerNameKey specifies the name for the command handler.
 	//
 	// If not specified defaults to name of generated command immediatelly
 	// followed with "Handler."
-	HandlerName PairKey = "hndlerName"
+	HandlerNameKey PairKey = "hndlerName"
 
 	// GenTargetKey specifies that the variable for the command should be declared.
 	//
@@ -143,8 +143,8 @@ const (
 
 // knownPairKeys is a slice of all supported cmdline tag pair keys.
 var knownPairKeys = []string{
-	IncludeKey, NameKey, TargetName, GenTargetKey, CommandName, GenHandlerKey,
-	HandlerName, HelpKey, IgnoreKey, OptionalKey, RequiredKey,
+	IncludeKey, NameKey, TargetNameKey, GenTargetKey, CommandNameKey, GenHandlerKey,
+	HandlerNameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey,
 }
 
 // Config is the [Generate] configuration.
@@ -232,11 +232,11 @@ func Default() (c *Config) {
 	c.HelpFromTag = true
 	c.HelpFromDocs = true
 	c.Print = true
+	c.Template = ChainedTmplName
 	c.NoWrite = false
 	c.ErrorOnUnsupportedField = false
 	c.BastConfig = bast.DefaultConfig()
 	c.BastConfig.TypeCheckingErrors = false
-	c.Model.ImportMap = make(ImportMap)
 	return
 }
 
@@ -256,8 +256,11 @@ func Generate(config *Config) (err error) {
 	if config.OutputFile == "" {
 		config.OutputFile = DefaultOutputFile
 	}
-	if len(config.Packages) == 0 {
+	if config.Packages == nil {
 		config.Packages = append(config.Packages, "./...")
+	}
+	if config.Template == "" {
+		config.Template = ChainedTmplName
 	}
 	if config.PackageName == "" {
 		var dir string
@@ -266,18 +269,14 @@ func Generate(config *Config) (err error) {
 		}
 		config.PackageName = filepath.Base(dir)
 	}
-	if config.Template == "" {
-		config.Template = ChainedTmplName
+	if config.BastConfig == nil {
+		config.BastConfig = bast.DefaultConfig()
+		config.BastConfig.TypeCheckingErrors = false
 	}
 
 	if config.bast, err = bast.Load(config.BastConfig, config.Packages...); err != nil {
 		return
 	}
-
-	if config.Model.ImportMap == nil {
-		config.Model.ImportMap = make(ImportMap)
-	}
-	config.Model.ImportMap["github.com/vedranvuk/cmdline"] = ""
 
 	for _, s := range config.bast.AllStructs() {
 
@@ -300,49 +299,32 @@ func Generate(config *Config) (err error) {
 		}
 
 		var c = Command{
-			Name:              s.Name,
-			TargetName:        tag.First(TargetName),
+			Name:              tag.First(NameKey),
+			TargetName:        tag.First(TargetNameKey),
+			CommandName:       tag.First(CommandNameKey),
+			HandlerName:       tag.First(HandlerNameKey),
 			GenTarget:         tag.Exists(GenTargetKey),
-			CommandName:       tag.First(CommandName),
-			HandlerName:       tag.First(HandlerName),
 			GenHandler:        tag.Exists(GenHandlerKey),
-			Help:              strings.Join(tag.Values[HelpKey], "\n"),
+			Help:              config.makeHelp(tag.Values[HelpKey], s.Doc),
 			SourceType:        s.Name,
 			SourcePackagePath: s.GetPackage().Path,
 			SourcePackageName: filepath.Base(s.GetPackage().Path),
 		}
-
-		if tag.Exists(NameKey) {
-			if tag.First(NameKey) == "" {
-				err = errors.New("invalid name tag, no value")
-			}
-			c.Name = tag.First(NameKey)
+		if c.Name == "" {
+			c.Name = s.Name
 		}
 		if c.TargetName == "" {
-			c.TargetName = c.Name + "Var"
+			c.TargetName = strutils.CamelCase(c.Name) + "Var"
 		}
 		if c.CommandName == "" {
-			c.CommandName = c.SourceType + "Cmd"
+			c.CommandName = strutils.CamelCase(c.SourceType) + "Cmd"
 		}
 		if c.HandlerName == "" {
 			c.HandlerName = c.CommandName + "Handler"
 		}
-
-		var (
-			optional = tag.Exists(OptionalKey)
-			required = tag.Exists(RequiredKey)
-		)
-		if optional && required {
-			err = errors.New("optional and required keys are mutually exclusive")
-			return
-		}
-
-		config.Model.ImportMap[s.GetPackage().Path] = ""
-
 		if err = config.parseStruct(s, "", &c); err != nil {
 			return
 		}
-
 		config.Model.Commands = append(config.Model.Commands, c)
 	}
 
@@ -379,15 +361,6 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 
 	if s := f.GetFile().Struct(f.Type); s != nil {
 		return self.parseStruct(s, path, c)
-	}
-
-	if imp := f.ImportSpecBySelectorExpr(f.Type); imp != nil {
-		if _, name, valid := strings.Cut(f.Type, "."); valid {
-			if s := self.bast.PkgStruct(imp.Path, name); s != nil {
-				self.Model.ImportMap[imp.Path] = imp.Name
-				return self.parseStruct(s, path, c)
-			}
-		}
 	}
 
 	var tag = strutils.Tag{

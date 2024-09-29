@@ -10,49 +10,49 @@ import (
 	"github.com/vedranvuk/cmdline"
 )
 
-type (
-	// ImportPath is a package import path.
-	ImportPath = string
-	// PackageName is a base name of a package.
-	PackageName = string
-	// ImportMap is a map of package import paths to package base names.
-	ImportMap = map[ImportPath]PackageName
+// This file defines the model exposed to the output file template.
 
+type (
 	// Model is the top level structure that holds the data from which to
 	// generate the output go source file containing generated commands.
 	Model struct {
-		// ImportMap holds a list of imports to add to the generated file.
-		ImportMap
+		// Commands is a slice of commands to be generated.
 		Commands
 	}
 
 	// Commands is a slice of commands to be generated.
 	Commands []Command
 
-	// Command defines a cmdline.Command to be generated. It is generated from a
-	// source struct.
+	// Command defines a [cmdline.Command] to be generated. It is generated 
+	// from struct that is known as the "source" in the model.
 	Command struct {
 		// Name is the command name as it appears in the command line interface.
 		//
-		// If not specified it defaults to source struct name.
-		//
+		// If not specified via tag defaults to source struct name.
 		Name string
 
-		// Help text is the Command help text generated from source struct
-		// doc comments.
+		// Help text is the [cmdline.Command] help text.
+		//
+		// If [Config.HelpFromTag] is true value of [HelpKey] is added as help.
+		// If [Config.HelpFromDocs] is true source struct doc comment is added
+		// as help.
 		Help string
 
 		// CommandName is the name of generated command.
 		//
-		// If not specified defaults to lowercase name of source struct
-		// immediately followed with "Cmd".
+		// If not specified defaults to camelcased name of source struct
+		// immediately followed by "Cmd".
 		CommandName string
 
 		// TargetName is the name for the generated Command variable specified
 		// via tag.
+		//
+		// If not specified defaults to camelcased name of source immediately 
+		// followed by "Var".
 		TargetName string
 
 		// HandlerName is the name of the handler function.
+		//
 		// If not specified a handler name is generated from keyword "handle"
 		// immediately followed by Command name.
 		HandlerName string
@@ -71,9 +71,6 @@ type (
 
 		// SourcePackageName is the base name of the package in which
 		// Source struct is defined.
-		//
-		// Currently it will always be the base name of the package path where
-		// the source struct is defined.
 		SourcePackageName string
 
 		// SourcePackagePath is the path of the package that contains the
@@ -87,8 +84,8 @@ type (
 	// Options is a slice of *Option.
 	Options []*Option
 
-	// Option defines a cmdline.Option to generate in a command. It is generated
-	// from a source struct field.
+	// Option defines a [cmdline.Option] in the generated [cmdline.Command]. 
+	// It is generated from a source struct field.
 	Option struct {
 		// LongName is the long name for the Option.
 		// Set from the source field name or custom name from tag.
@@ -98,7 +95,11 @@ type (
 		// Auto generated.
 		ShortName string
 
-		// Help is the option help text.
+		// Help text is the [cmdline.Option] help text.
+		//
+		// If [Config.HelpFromTag] is true value of [HelpKey] is added as help.
+		// If [Config.HelpFromDocs] is true source struct doc comment is added
+		// as help.
 		Help string
 
 		// SourceFieldName is the source field name.
@@ -128,13 +129,20 @@ func (self Model) AnyTargets() (b bool) {
 	return
 }
 
-func (self Model) Imports() []string {
+// Imports returns a slice of imports to include in the generated output file.
+func (self Model) Imports() (out []string) {
+	var paths = make(map[string]struct{})
 	for _, command := range self.Commands {
-		for _, option := range command.Options {
-			_ = option
+		if command.GenTarget {
+			paths[command.SourcePackagePath] = struct{}{}
 		}
 	}
-	return nil
+	out = make([]string, 0, len(paths) + 1)
+	out = append(out, "\"github.com/vedranvuk/cmdline\"")
+	for key := range paths {
+		out = append(out, fmt.Sprintf("\"%s\"", key))
+	}
+	return
 }
 
 // TargetSelector returns a selector expression string that adresses the

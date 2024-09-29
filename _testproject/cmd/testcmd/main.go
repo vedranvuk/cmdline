@@ -1,14 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"log"
+
+	"github.com/vedranvuk/cmdline/_testproject/pkg/models"
 )
 
+var config = new(models.Config)
+
 func main() {
-	var cfg = cmdlineConfig()
-	if err := cfg.Parse(nil); err != nil {
+	if err := cmdlineConfig().Parse(nil); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("%+v\n", optionsVar.OutputDirectory)
 }
