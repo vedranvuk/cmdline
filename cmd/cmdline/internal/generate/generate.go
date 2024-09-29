@@ -110,7 +110,7 @@ const (
 	//
 	// If not specified defaults to name of generated command immediatelly
 	// followed with "Handler."
-	HandlerNameKey PairKey = "hndlerName"
+	HandlerNameKey PairKey = "handlerName"
 
 	// GenTargetKey specifies that the variable for the command should be declared.
 	//
