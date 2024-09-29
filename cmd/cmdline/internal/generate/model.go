@@ -12,6 +12,109 @@ import (
 
 // This file defines the model exposed to the output file template.
 
+// PairKey is a known pair key read from the a cmdline tag value.
+//
+// It can appear in source struct doc comments, source struct field docs or 
+// source struct field tags.
+//
+// It can appear multiple times in a doc comment in which case values for same 
+// tags are concatenated. Some keys take values in key=value format.
+type PairKey = string
+
+const (
+	// IncludeKey is a placeholder key that can be used for when a command is
+	// to be generated but there is no need to specify any other options for
+	// generated code.
+	//
+	// By default, structs that have no cmdline tags are skipped so a struct can
+	// be tagged with this key to be included and use all default options.
+	//
+	// It takes no value.
+	IncludeKey PairKey = "include"
+
+	// IgnoreKey is read from struct fields and specifies that the tagged field
+	// should be excluded when generating command options from fields.
+	//
+	// It takes no values.
+	IgnoreKey PairKey = "ignore"
+
+	// HelpKey is used on a source struct and specifies the help text to be set
+	// with the command that will represent the struct.
+	//
+	// It takes a single value in the key=value format that defines the command
+	// help. E.g.: help=This is a help text for ca command representing a
+	// bound struct.
+	//
+	// Help text cannnot span multiple lines, it is a one-line shown to user
+	// when cmdline config help is requested.
+	HelpKey PairKey = "help"
+
+	// NameKey is used on a source struct and specifies the name of the command
+	// that represents the struct being bound to.
+	//
+	// This name is the name by which source struct commands and their field
+	// options are addressed from the command line.
+	//
+	// It takes a single value in the key=value format that defines the command
+	// name. E.g.: name=MyStruct.
+	NameKey PairKey = "name"
+
+	// CommandNameKey specifies the name for the generated command.
+	CommandNameKey PairKey = "commandName"
+
+	// TargetNameKey names variable of the output struct command options will
+	// write to.
+	//
+	// This may name a variable declared in some other package file that the
+	// generated command options can adress and write from arguments or name
+	// the variable that will be generated in the output file so some other file
+	// in the package can address it.
+	//
+	// If unspecified, name is generated from the command name such that the
+	// command name is appended with "Var" suffix, e.g. "CommandVar".
+	TargetNameKey PairKey = "targetName"
+
+	// HandlerNameKey specifies the name for the command handler.
+	//
+	// If not specified defaults to name of generated command immediatelly
+	// followed with "Handler."
+	HandlerNameKey PairKey = "handlerName"
+
+	// GenTargetKey specifies that the variable for the command should be declared.
+	//
+	// This is useful if the variable is already declared in some
+	// other file in the package.
+	//
+	// Generated commands will still address the target variable defined by
+	// [VarNameKey].
+	//
+	// It takes no values.
+	GenTargetKey PairKey = "genTarget"
+
+	// GenHandlerKey if specified will generate the command handler stub.
+	//
+	// It takes no values.
+	GenHandlerKey PairKey = "genHandler"
+
+	// OptionalKey is read from struct fields and specifies that the tagged
+	// field should use the Optional option.
+	//
+	// It takes no values.
+	OptionalKey PairKey = "optional"
+
+	// RequiredKey is read from struct fields and specifies that the tagged
+	// field should use the Required option.
+	//
+	// It takes no values.
+	RequiredKey PairKey = "required"
+)
+
+// knownPairKeys is a slice of all supported cmdline tag pair keys.
+var knownPairKeys = []string{
+	IncludeKey, NameKey, TargetNameKey, GenTargetKey, CommandNameKey, GenHandlerKey,
+	HandlerNameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey,
+}
+
 type (
 	// Model is the top level structure that holds the data from which to
 	// generate the output go source file containing generated commands.
@@ -78,7 +181,7 @@ type (
 		SourcePackagePath string
 
 		// Options to generate.
-		Options
+		Options Options
 	}
 
 	// Options is a slice of *Option.
