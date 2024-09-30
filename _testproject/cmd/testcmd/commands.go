@@ -26,7 +26,8 @@ func cmdlineConfig() (c *cmdline.Config) {
 		RequiredVar("Age", "a", "Age is the age.", &config.Age).
 		BooleanVar("Subscribed", "s", "Subscribed is usually true.", &config.Subscribed).
 		OptionalVar("DOB", "d", "DOB is the darte of birth.", &config.Sub.DOB).
-		OptionalVar("email", "e", "EMail is the email address.", &config.Sub.EMail)
+		OptionalVar("email", "e", "EMail is the email address.", &config.Sub.EMail).
+		VariadicVar("Names", "Names is a slice of string.", &config.Names)
 
 	c.Commands.Register(cmdline.HelpCommand())
 

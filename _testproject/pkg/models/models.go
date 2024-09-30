@@ -21,6 +21,8 @@ type Config struct {
 	Subscribed bool
 	// Sub doc comments are ignored.
 	Sub
+	// Names is a slice of string.
+	Names []string
 }
 
 type Sub struct {
