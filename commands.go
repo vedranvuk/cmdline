@@ -35,11 +35,11 @@ type Context interface {
 	// context.Background if Parse was used.
 	context.Context
 
-	// Parsed returns true if an Option with specified LongName was parsed.
+	// Parsed returns true if an [Option] with specified LongName was parsed.
 	Parsed(string) bool
 
 	// Values returns an array of strings that were passed to the
-	// Option under specified LongName.
+	// [Option] under specified LongName or Name.
 	//
 	// Unparsed Options and options that take no arguments return nil.
 	Values(string) Values
@@ -47,12 +47,13 @@ type Context interface {
 	// Config returns the config that is being used to parse.
 	Config() *Config
 
-	// Command returns the owner Command of this handler.
+	// Command returns the owner [Command] of the handler this Context is 
+	// inspcted from.
 	//
 	// If this handler is the global options handler result will be nil.
 	Command() *Command
 
-	// ParentCommand returns the parent command of this handler's command.
+	// ParentCommand returns the parent command of this handler's [Command].
 	//
 	// It may return nil if this command has no parent command or if this
 	// handler is the global options handler.

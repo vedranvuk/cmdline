@@ -4,7 +4,7 @@ go 1.23.1
 
 require (
 	github.com/vedranvuk/bast v0.0.0-20240930101845-7935a6b6fb3e
-	github.com/vedranvuk/strutils v0.0.0-20240929151339-c677c08dd040
+	github.com/vedranvuk/strutils v0.0.0-20241001110106-58c3aa315164
 )
 
 require (
