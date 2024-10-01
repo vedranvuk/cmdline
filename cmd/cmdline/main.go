@@ -25,8 +25,8 @@ func main() {
 	var config = cmdline.DefaultOS()
 	config.PrintInDefinedOrder = true
 	config.Globals.BooleanVar("verbose", "v", "Enable verose output.", &verbose)
+
 	config.Commands.Register(cmdline.HelpCommand(topicMap))
-	config.Commands.Handle("version", "Show version.", handleVersion)
 	config.Commands.Handle("generate", "Generates go code that parses arguments to structs.", handleGenerate).
 		SetDoc(generateDoc).
 		Options.
@@ -46,6 +46,7 @@ func main() {
 	config.Commands.Handle("makecfg", "Write a default configuration file.", handleMakeCfg).Options.
 		Optional("output-dir", "o", "Output directory.").
 		Boolean("force", "f", "Force overwrite if file already exists.")
+	config.Commands.Handle("version", "Show version.", handleVersion)
 
 	if err := config.Parse(nil); err != nil && err != cmdline.ErrNoArgs {
 		log.Fatal(err)

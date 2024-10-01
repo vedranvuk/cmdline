@@ -191,6 +191,9 @@ func (self Options) parse(config *Config) (err error) {
 
 			}
 		case ShortArgument:
+
+			// TODO parse combined short option names for booleans only.
+
 			if config.IndexedFirst {
 				if fui := self.getFirstUnparsedIndexed(); fui != nil {
 					return fmt.Errorf("indexed argument '%s' not parsed", fui.LongName)
@@ -204,6 +207,7 @@ func (self Options) parse(config *Config) (err error) {
 			if opt = self.FindShort(key); opt == nil {
 				return fmt.Errorf("unknown option '%s'", key)
 			}
+
 
 			switch opt.Kind {
 			case Boolean:
@@ -373,6 +377,9 @@ func (self Options) setVar(option *Option) (err error) {
 // convertToVar sets v which must be a pointer to a supported type from raw
 // or returns an error if conversion error occured.
 func convertToVar(v any, raw Values) (err error) {
+
+	// TODO Accept pointer to a pointer (null-like behaviour).
+
 	switch p := v.(type) {
 	case *bool:
 		*p = true

@@ -347,7 +347,7 @@ func (self *Config) PrintUsage() {
 	if self.Commands.Count() > 0 {
 		fmt.Fprintf(self.GetOutput(), "Available commands are:\n\n")
 		for _, command := range self.Commands {
-			fmt.Fprintf(self.GetOutput(), "  %s\n", command.Name)
+			fmt.Fprintf(self.GetOutput(), "  %s\t%s\n", command.Name, command.Help)
 		}
 		fmt.Fprintf(self.GetOutput(), "\n")
 	}
