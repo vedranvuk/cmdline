@@ -91,9 +91,13 @@ type Command struct {
 	// Commands.
 	Name string
 
-	// Help is the short Command help text that should prefferably fit
-	// the width of a standard terminal.
+	// Help is the short Command help text displayed in command listing that 
+	// should prefferably fit the standard width of a terminal.
 	Help string
+
+	// Doc is the command documentation, a longer text displayed when additional
+	// command details in addition to [Command.Help] are requested.
+	Doc string
 
 	// Handler is the function to call when the Command gets invoked from
 	// arguments during parsing.
@@ -121,6 +125,12 @@ type Command struct {
 
 	// executed is true if the command was parsed from arguments.
 	executed bool
+}
+
+// SetDoc sets [Command.Doc] and returns self.
+func (self *Command) SetDoc(doc string) *Command {
+	self.Doc = doc
+	return self
 }
 
 // ExclusivityGroup defines a group of option names which are mutually

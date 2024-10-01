@@ -3,12 +3,12 @@ module github.com/vedranvuk/cmdline
 go 1.23.1
 
 require (
-	github.com/vedranvuk/bast v0.0.0-20240929172937-dfaf4b6f9f4f
+	github.com/vedranvuk/bast v0.0.0-20240930101845-7935a6b6fb3e
 	github.com/vedranvuk/strutils v0.0.0-20240929151339-c677c08dd040
 )
 
 require (
-	github.com/vedranvuk/ds v0.0.0-20240913183506-6b66a044517c // indirect
+	github.com/vedranvuk/ds v0.0.0-20240930133828-52d795fc7747 // indirect
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/tools v0.25.0 // indirect
