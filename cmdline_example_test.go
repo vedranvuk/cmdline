@@ -29,8 +29,7 @@ func ExampleParse1() {
 		return nil
 	}
 
-	config.Commands.Handle("help", "Show help.", cmdline.HelpHandler).Options.
-		Variadic("topic", "Help topic.")
+	config.Commands.Register(cmdline.HelpCommand(nil))
 
 	{
 		var items = config.Commands.Handle("items", "Operate on items.",
@@ -49,7 +48,7 @@ func ExampleParse1() {
 			BooleanVar("force", "f", "Force it.", &force).
 			OptionalVar("count", "c", "Give a count.", &count).
 			OptionalVar("value", "v", "Give a value.", &value)
-			
+
 		items.SubCommands.Handle("remove", "Remove an item.", func(c cmdline.Context) error {
 			fmt.Printf("command: remove\n")
 			return nil
@@ -93,21 +92,7 @@ func ExampleParse2() {
 			return nil
 		},
 		Commands: cmdline.Commands{
-			&cmdline.Command{
-				Name: "help",
-				Help: "Show help.",
-				Handler: func(c cmdline.Context) error {
-					fmt.Printf("Help requested for: %s.\n", c.Value("topic"))
-					return nil
-				},
-				Options: cmdline.Options{
-					&cmdline.Option{
-						LongName: "topic",
-						Help:     "Help topic.",
-						Kind:     cmdline.Variadic,
-					},
-				},
-			},
+			cmdline.HelpCommand(nil),
 			&cmdline.Command{
 				Name: "items",
 				Help: "Operate on items.",

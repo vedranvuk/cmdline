@@ -180,17 +180,17 @@ func ParseCtx(ctx context.Context, config *Config) error { return config.Parse(c
 // If a Command handler returns an error the parse process is immediately
 // aborted and the error propagated back to the Parse/ParseCtx caller.
 //
-// Parse first runs the validation pass that checks that the Config definition 
+// Parse first runs the validation pass that checks that the Config definition
 // is valid and well formatted.
 //
 // Following validation rules are enforced before the parse process and will
 // return a descriptive error if any validation fails:
 //
-// * There may be no duplicate [Command] instance names per their [Commands] 
+// * There may be no duplicate [Command] instance names per their [Commands]
 // group.
-// * There may be no duplicate [Option] instance names within their [Options] 
+// * There may be no duplicate [Option] instance names within their [Options]
 // group.
-// For more details see [Command], [Option], [ValidateOptions] and 
+// For more details see [Command], [Option], [ValidateOptions] and
 // [ValidateCommands].
 //
 // * If an [Options] set contains a [Variadic] [Option] which
@@ -198,11 +198,11 @@ func ParseCtx(ctx context.Context, config *Config) error { return config.Parse(c
 // invocations following it.
 //
 // This means that if [Config.Globals] contains a [Variadic] [Option] there may
-// be no [Config.Commands] defined. This is also the case for a [Command] at 
+// be no [Config.Commands] defined. This is also the case for a [Command] at
 // any level as [Variadic] [Option] in Command's [Options] consume all following
 // arguments in the same way.
 //
-// During [Option] parsing, if an [Option] has a mapped variable its value will 
+// During [Option] parsing, if an [Option] has a mapped variable its value will
 // be set at option parse time. See [Option] for details.
 func (self *Config) Parse(ctx context.Context) (err error) {
 
@@ -311,17 +311,16 @@ func (self *Config) Reset() {
 func (self *Config) PrintUsage() {
 
 	var (
-		out     string
 		subs    = false
 		program = filepath.Base(os.Args[0])
 	)
 
-	out = "Usage:\n\n"
+	fmt.Fprintf(self.GetOutput(), "Usage:\n\n")
 
 	if self.Globals.Count() > 0 {
-		out += fmt.Sprintf("  %s [global options]", program)
+		fmt.Fprintf(self.GetOutput(), "  %s [global options]", program)
 	} else {
-		out += fmt.Sprintf("  %s", program)
+		fmt.Fprintf(self.GetOutput(), "  %s", program)
 	}
 
 	for _, c := range self.Commands {
@@ -332,14 +331,26 @@ func (self *Config) PrintUsage() {
 	}
 
 	if subs {
-		out += " [command [subcommand...] [options]]\n"
+		fmt.Fprintf(self.GetOutput(), " [command [subcommand...] [options]]\n")
 	} else {
-		out += " [command [options]]\n"
+		fmt.Fprintf(self.GetOutput(), " [command [options]]\n")
 	}
 
-	out += "\n"
+	fmt.Fprintf(self.GetOutput(), "\n")
 
-	fmt.Fprint(self.GetOutput(), out)
+	if self.Globals.Count() > 0 {
+		fmt.Fprintf(self.GetOutput(), "Global options are:\n\n")
+		PrintOptions(self.GetOutput(), self, self.Globals, 2)
+		fmt.Fprintf(self.GetOutput(), "\n")
+	}
+
+	if self.Commands.Count() > 0 {
+		fmt.Fprintf(self.GetOutput(), "Available commands are:\n\n")
+		for _, command := range self.Commands {
+			fmt.Fprintf(self.GetOutput(), "  %s\n", command.Name)
+		}
+		fmt.Fprintf(self.GetOutput(), "\n")
+	}
 }
 
 // GetOutput returns the output to write to.

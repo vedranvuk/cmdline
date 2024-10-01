@@ -4,21 +4,10 @@
 
 package cmdline
 
-// HelpHandler is a utility handler that prints the current configuration.
-var HelpHandler = func(c Context) error {
-
-	var vals []string
-	if vals = c.Values("topic"); len(vals) == 0 {
-		// TODO Print out a synopsis.
-	}
-
-	if config := c.Config(); config != nil {
-		config.PrintUsage()
-		PrintConfig(config.GetOutput(), c.Config())
-	}
-
-	return nil
-}
+import (
+	"errors"
+	"fmt"
+)
 
 // TopicMap maps topic names to topic text.
 type TopicMap map[string]string
@@ -26,23 +15,82 @@ type TopicMap map[string]string
 // HelpCommand is a utility function that returns a command that handles "help"
 // using HelpHandler.
 func HelpCommand(topicMap TopicMap) (out *Command) {
+
+	const doc = `Help command shows a command usage or help on a specific topic.
+
+Usage:
+  help <help topic|command [subcommand]>`
 	out = &Command{
 		Name:                "help",
-		Help:                "Prints out the command usage.",
+		Help:                "Prints out a help topic or a command usage.",
+		Doc:                 doc,
 		RequireSubExecution: false,
 		Handler: func(c Context) error {
-			
-			var vals []string
-			if vals = c.Values("topic"); len(vals) == 0 {
-				// TODO Print out a synopsis.
+
+			var config *Config
+			if config = c.Config(); config == nil {
+				return errors.New("HelpCommand requires a config")
 			}
 
-			if config := c.Config(); config != nil {
-				config.PrintUsage()
-				PrintConfig(config.GetOutput(), c.Config())
+			var vals = c.Values("topic")
+			if len(vals) == 0 {
+				fmt.Fprintf(config.GetOutput(), "%s\n\n", out.Doc)
+				if len(topicMap) > 0 {
+					fmt.Fprintf(config.GetOutput(), "Available topics are:\n")
+					fmt.Fprintf(config.GetOutput(), "\n")
+					for topic := range topicMap {
+						fmt.Fprintf(config.GetOutput(), "  %s\n", topic)
+					}
+					fmt.Fprintf(config.GetOutput(), "\n")
+				}
+				return nil
 			}
 
-			return nil
+			if len(vals) == 1 {
+				if help, ok := topicMap[vals[0]]; ok {
+					fmt.Fprint(config.GetOutput(), help)
+					return nil
+				}
+			}
+
+			var cmd *Command
+			for cmds := config.Commands; cmds != nil; {
+				if cmd = cmds.Find(vals[0]); cmd == nil {
+					return fmt.Errorf("Command '%s' not found.", vals[0])
+				}
+				vals = vals[1:]
+
+				if len(vals) > 0 {
+					cmds = cmd.SubCommands
+					continue
+				}
+
+				if cmd.Doc == "" {
+					fmt.Fprintf(config.GetOutput(), "%s\n", cmd.Help)
+				} else {
+					fmt.Fprintf(config.GetOutput(), "%s\n", cmd.Doc)
+				}
+
+				var showOpts, showCmds = cmd.Options.Count() > 0, cmd.SubCommands.Count() > 0
+				if showOpts || showCmds {
+					fmt.Fprintf(config.GetOutput(), "\n")
+				}
+				if showOpts {
+					fmt.Fprintf(config.GetOutput(), "Command options are:\n\n")
+					PrintOptions(config.GetOutput(), config, cmd.Options, 2)
+					fmt.Fprintf(config.GetOutput(), "\n")
+				}
+				if showCmds {
+					fmt.Fprintf(config.GetOutput(), "Available sub commands are:\n\n")
+					for _, command := range cmd.SubCommands {
+						fmt.Fprintf(config.GetOutput(), "  %s\n", command.Name)
+					}
+					fmt.Fprintf(config.GetOutput(), "\n")
+				}
+				return nil
+			}
+
+			return fmt.Errorf("Command '%s' not found.", vals[0])
 		},
 	}
 	out.Options.Variadic("topic", "Help topic.")

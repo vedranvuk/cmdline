@@ -468,7 +468,7 @@ func TestCustomMappedType(t *testing.T) {
 
 func TestHelpHandler(t *testing.T) {
 	var config = getPrettyPrintDemoConfig()
-	config.Commands.Register(HelpCommand())
+	config.Commands.Register(HelpCommand(nil))
 	config.Args = []string{"help"}
 	if err := config.Parse(nil); err != nil {
 		t.Fatal(err)
@@ -484,7 +484,7 @@ func TestParser2(t *testing.T) {
 		"penis",
 	}
 
-	config.Commands.Handle("help", "h", HelpHandler)
+	config.Commands.Register(HelpCommand(nil))
 	config.Commands.Handle(
 		"generate",
 		"Generates commandline classes.",
