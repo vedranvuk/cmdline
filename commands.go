@@ -23,28 +23,6 @@ type Handler func(Context) error
 // allow for the command chain execution to continue.
 var NopHandler = func(Context) error { return nil }
 
-// HelpHandler is a utility handler that prints the current configuration.
-var HelpHandler = func(c Context) error {
-
-	if config := c.Config(); config != nil {
-		config.PrintUsage()
-		PrintConfig(config.GetOutput(), c.Config())
-	}
-
-	return nil
-}
-
-// HelpCommand is a utility function that returns a command that handles "help"
-// using HelpHandler.
-func HelpCommand() *Command {
-	return &Command{
-		Name:                "help",
-		Help:                "Prints out the command usage.",
-		RequireSubExecution: false,
-		Handler:             HelpHandler,
-	}
-}
-
 // Context is passed to the Command handler that allows inspection of
 // Command's Options states. It wraps the standard context passed to Config.Parse
 // possibly via Parse or ParseCtx.
@@ -101,6 +79,9 @@ type Command struct {
 
 	// Handler is the function to call when the Command gets invoked from
 	// arguments during parsing.
+	//
+	// A command without a handler will generate an error. You can use 
+	// [NopHandler] as handler placeholder.
 	Handler Handler
 
 	// SubCommands are this Command's sub commands. Command invocation can be
@@ -113,7 +94,8 @@ type Command struct {
 	// RequireSubExecution if true, will raise an error if none of this
 	// Command's SubCommands were executed. The setting is ignored if Command
 	// has no SubCommands defined.
-	// Defaults to false.
+	//
+	// Default: false
 	RequireSubExecution bool
 
 	// ExclusivityGroups are the exclusivity groups for this Command's Options.
