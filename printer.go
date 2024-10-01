@@ -32,8 +32,22 @@ func PrintCommands(w io.Writer, config *Config, commands Commands, indent int) {
 	}
 }
 
-// PrintOption prints command to w idented with ident tabs using config.
+// PrintCommand prints command to w idented with ident tabs using config.
 func PrintCommand(w io.Writer, config *Config, command *Command, indent int) {
+	io.WriteString(w, indentString(indent))
+	io.WriteString(w, fmt.Sprintf("%s\t%s\n", command.Name, command.Help))
+	if command.Options.Count() > 0 {
+		PrintOptions(w, config, command.Options, indent+1)
+	}
+	io.WriteString(w, "\n")
+	if command.SubCommands.Count() > 0 {
+		PrintCommands(w, config, command.SubCommands, indent+1)
+	}
+}
+
+// PrintSingleCommand prints a single command to w idented with ident tabs
+// using config.
+func PrintSingleCommand(w io.Writer, config *Config, command *Command, indent int) {
 	io.WriteString(w, indentString(indent))
 	io.WriteString(w, fmt.Sprintf("%s\t%s\n", command.Name, command.Help))
 	if command.Options.Count() > 0 {
@@ -48,7 +62,7 @@ func PrintCommand(w io.Writer, config *Config, command *Command, indent int) {
 // PrintOptions prints options to w idented with ident tabs using config.
 func PrintOptions(w io.Writer, config *Config, options Options, indent int) {
 	var wr = newTabWriter(w)
-	
+
 	if config.PrintInDefinedOrder {
 		for _, option := range options {
 			PrintOption(wr, config, option, indent)
