@@ -86,7 +86,7 @@ const (
 	// other file in the package.
 	//
 	// Generated commands will still address the target variable defined by
-	// [VarNameKey].
+	// [TargetNameKey].
 	//
 	// It takes no values.
 	GenTargetKey PairKey = "genTarget"

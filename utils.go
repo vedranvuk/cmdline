@@ -36,16 +36,15 @@ Usage:
 			if len(vals) == 0 {
 				fmt.Fprintf(config.GetOutput(), "%s\n\n", out.Doc)
 				if len(topicMap) > 0 {
-					fmt.Fprintf(config.GetOutput(), "Available topics are:\n")
-					fmt.Fprintf(config.GetOutput(), "\n")
+					fmt.Fprintf(config.GetOutput(), "Available topics are:\n\n")
 					for topic := range topicMap {
 						fmt.Fprintf(config.GetOutput(), "  %s\n", topic)
 					}
 					fmt.Fprintf(config.GetOutput(), "\n")
 				}
 				if config.Commands.Count() > 0 {
-					fmt.Fprintf(config.GetOutput(), "Available commands are:\n")
-					PrintCommands(config.GetOutput(), config, config.Commands, 2)
+					fmt.Fprintf(config.GetOutput(), "Available commands are:\n\n")
+					PrintCommandsNoOptions(config.GetOutput(), config, config.Commands, 1)
 					fmt.Fprintf(config.GetOutput(), "\n")
 				}
 				return nil
