@@ -20,7 +20,7 @@ func cmdlineConfig() (c *cmdline.Config) {
 	){{if gt $command.Options.Count 0}}.Options.{{range $idx, $option := $command.Options}}
 		{{$option.Declaration $command}}{{if not ($command.Options.IsLast $idx)}}.{{end}}{{end}}{{end}}{{end}}
 
-	c.Commands.Register(cmdline.HelpCommand())
+	c.Commands.Register(cmdline.HelpCommand(nil))
 
 	return
 }

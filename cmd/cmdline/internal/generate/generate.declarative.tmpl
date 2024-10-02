@@ -38,7 +38,7 @@ func cmdlineConfig() (c *cmdline.Config) {
 		Args: os.Args[1:],
 		Commands: cmdline.Commands{ {{range .Commands}}
 			{{.CommandName}},{{end}}
-			cmdline.HelpCommand(),
+			cmdline.HelpCommand(nil),
 		},
 	}
 
