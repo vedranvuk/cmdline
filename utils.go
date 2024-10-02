@@ -75,7 +75,10 @@ Usage:
 					fmt.Fprintf(config.GetOutput(), "%s\n", cmd.Doc)
 				}
 
-				var showOpts, showCmds = cmd.Options.Count() > 0, cmd.SubCommands.Count() > 0
+				var (
+					showOpts = cmd.Options.Count() > 0
+					showCmds = cmd.SubCommands.Count() > 0
+				)
 				if showOpts || showCmds {
 					fmt.Fprintf(config.GetOutput(), "\n")
 				}

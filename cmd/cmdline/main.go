@@ -119,11 +119,16 @@ func handleDump(c cmdline.Context) error {
 	return nil
 }
 
+// topicMap maps topic names to topic contents.
+var topicMap = cmdline.TopicMap{
+	"tags": tagsDoc,
+}
+
 const (
 	// generateDoc is the "generate" command doc.
 	generateDoc = `Generate generates go source containing command line interface that
 maps structs to commands and their fields to options.`
-	// tagsDoc is the cmdline tags doc.
+	// tagsDoc is the "tags" topic doc.
 	tagsDoc = `The following tags are read from source structs and their fields and configure
 the generated cmdline interface.
 
@@ -218,8 +223,3 @@ Read from struct fields and specifies that the tagged field should use the
 Required option. It takes no values.
 `
 )
-
-// topicMap maps topic names to topic contents.
-var topicMap = cmdline.TopicMap{
-	"tags": tagsDoc,
-}
