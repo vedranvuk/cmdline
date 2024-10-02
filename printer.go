@@ -25,6 +25,15 @@ func PrintConfig(w io.Writer, config *Config) {
 	}
 }
 
+// PrintCommandsGroup prints only the commands without recursing into subcommands.
+func PrintCommandsGroup(w io.Writer, config *Config, commands Commands, indent int) {
+	var tw = tabwriter.NewWriter(w, 2, 2, 2, 32, 0)
+	for _, command := range commands {
+		fmt.Fprintf(tw, "%s%s\t%s\n", indentString(indent),command.Name,  command.Help)
+	}
+	tw.Flush()
+}
+
 // PrintOptions prints commands to w idented with ident tabs using config.
 func PrintCommands(w io.Writer, config *Config, commands Commands, indent int) {
 	for _, command := range commands {

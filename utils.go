@@ -43,6 +43,11 @@ Usage:
 					}
 					fmt.Fprintf(config.GetOutput(), "\n")
 				}
+				if config.Commands.Count() > 0 {
+					fmt.Fprintf(config.GetOutput(), "Available commands are:\n")
+					PrintCommands(config.GetOutput(), config, config.Commands, 2)
+					fmt.Fprintf(config.GetOutput(), "\n")
+				}
 				return nil
 			}
 
@@ -82,9 +87,7 @@ Usage:
 				}
 				if showCmds {
 					fmt.Fprintf(config.GetOutput(), "Available sub commands are:\n\n")
-					for _, command := range cmd.SubCommands {
-						fmt.Fprintf(config.GetOutput(), "  %s\n", command.Name)
-					}
+					PrintCommandsGroup(config.GetOutput(), config, cmd.SubCommands, 2)
 					fmt.Fprintf(config.GetOutput(), "\n")
 				}
 				return nil
