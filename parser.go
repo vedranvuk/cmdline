@@ -130,6 +130,7 @@ func (self Options) parse(config *Config) (err error) {
 		opt        *Option
 		key, val   string
 		assignment bool
+		combined   string
 	)
 
 	for !config.Args.Eof() {
@@ -192,8 +193,6 @@ func (self Options) parse(config *Config) (err error) {
 			}
 		case ShortArgument:
 
-			// TODO parse combined short option names for booleans only.
-
 			if config.IndexedFirst {
 				if fui := self.getFirstUnparsedIndexed(); fui != nil {
 					return fmt.Errorf("indexed argument '%s' not parsed", fui.LongName)
@@ -204,10 +203,25 @@ func (self Options) parse(config *Config) (err error) {
 				return fmt.Errorf("option '%s' requires a value", opt.LongName)
 			}
 
+			// Set up for combined booleans parsing.
+			if len(key) > 1 {
+				combined = key
+				for _, k := range combined {
+					if opt = self.FindShort(string(k)); opt == nil {
+						return fmt.Errorf("combined argument %s refers to unknown option %s", combined, string(k))
+					}
+					if opt.Kind != Boolean {
+						return fmt.Errorf("combined argument %s may contain boolean options only", combined)
+					}
+				}
+				opt = self.FindShort(combined[:1])
+				combined = combined[1:]
+				goto ParseOption
+			}
+
 			if opt = self.FindShort(key); opt == nil {
 				return fmt.Errorf("unknown option '%s'", key)
 			}
-
 
 			switch opt.Kind {
 			case Boolean:
@@ -242,7 +256,9 @@ func (self Options) parse(config *Config) (err error) {
 			}
 		}
 
-		// Sets the Option as parsed and sets raw value(s).
+	ParseOption:
+
+		// Set Option as parsed.
 		switch opt.Kind {
 		case Boolean:
 			if !config.UseAssignment {
@@ -300,8 +316,16 @@ func (self Options) parse(config *Config) (err error) {
 			config.Args.Clear()
 		}
 
+		// Set [Option.Var] value.
 		if err = self.setVar(opt); err != nil {
-			return fmt.Errorf("invalid value '%s' for option '%s': %w", opt.Var, opt.LongName, err)
+			return fmt.Errorf("invalid Var '%v' for option '%s': %w", opt.Var, opt.LongName, err)
+		}
+
+		// Combined booleans loop.
+		if len(combined) > 0 {
+			opt = self.FindShort(combined[:1])
+			combined = combined[1:]
+			goto ParseOption
 		}
 
 		opt = nil
@@ -446,7 +470,7 @@ func convertToVar(v any, raw Values) (err error) {
 		if v, ok := p.(Value); ok {
 			err = v.Set(raw)
 		} else {
-			return errors.New("unsupported mapped value")
+			return errors.New("expected pointer to supported type")
 		}
 	}
 	return

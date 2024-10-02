@@ -466,7 +466,7 @@ func TestCustomMappedType(t *testing.T) {
 	}
 }
 
-func TestHelpHandler(t *testing.T) {
+func TestHelpCommand(t *testing.T) {
 	var config = getPrettyPrintDemoConfig()
 	config.Commands.Register(HelpCommand(nil))
 	config.Args = []string{"help"}
@@ -504,6 +504,23 @@ func TestParser2(t *testing.T) {
 
 	if err := config.Parse(nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCombinedBooleans(t *testing.T) {
+	var (
+		config  = Default("-abc")
+		a, b, c bool
+	)
+	config.Globals.
+		BooleanVar("A", "a", "", &a).
+		BooleanVar("B", "b", "", &b).
+		BooleanVar("C", "c", "", &c)
+	if err := config.Parse(nil); err != nil {
+		t.Fatal(err)
+	}
+	if !a || !b || !c {
+		t.Fatal("Combined booleans failed")
 	}
 }
 
