@@ -339,10 +339,10 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 		if self.ErrorOnUnsupportedField {
 			return errors.New("unsupported field type: " + f.Type)
 		}
-		log.Printf("Cannot determine basic type for field %s, skipping.\n", f.Type)
+		log.Printf("cmdline: cannot determine basic type for field %s, skipping.\n", f.Type)
 		return nil
 	default:
-		log.Printf("Unknown basic type: %s\n", opt.SourceBasicType)
+		log.Printf("cmdline: unknown basic type: %s\n", opt.SourceBasicType)
 		return nil
 	}
 
@@ -444,10 +444,15 @@ func (self *Config) uncommentDocs(in []string) (out []string) {
 	return
 }
 
-// helpFromDoc generates help from tag and doc comment.
+// makeHelp extracts help from tag and doc depending on config and returns a
+// formatted string to be set as [Command] or [Option] help.
 //
 // It strips comment prefixes from each doc line.
+//
+// Right now it wraps the result to 80 columns.
 func (self *Config) makeHelp(tag, doc []string) string {
+	// TODO Get terminal width, calc help width, include other columns in calc,
+	// basically redo printing/tabwriting.
 	const col = 80
 	var out []string
 	var lt, ld, l = len(tag), len(doc), 0
@@ -464,6 +469,9 @@ func (self *Config) makeHelp(tag, doc []string) string {
 	out = make([]string, 0, l)
 	if self.HelpFromTag {
 		for _, line := range tag {
+			if line == "" {
+				continue
+			}
 			out = append(out, line)
 		}
 	}
@@ -479,6 +487,9 @@ func (self *Config) makeHelp(tag, doc []string) string {
 			if strings.HasPrefix(line, self.TagKey+":") {
 				continue
 			}
+			if line == "" {
+				continue
+			}
 			out = append(out, line)
 		}
 	}
@@ -487,10 +498,20 @@ func (self *Config) makeHelp(tag, doc []string) string {
 }
 
 // generateOptionShortNames generates short Option names.
+//
+// The algorithm is trivial; a single pass of generating shortname from
+// lowercased longname, starting with first char and advancing to next if
+// non-unique in set thus far, until unique or exhausted.
+//
+// Second pass makes sure all short options are unique in set, and if not, the
+// latter option shortname is unset.
+//
+// If a unique letter was not generated from long name option gets no short
+// option name.
 func generateOptionShortNames(c *Command) {
-	// Sequentially go through options, setting shortcmd to lowercase forst
+	// Sequentially go through options, setting shortcmd to lowercase first
 	// letter from longname. Each time check if it is already used and advance
-	// to next letter in longname until unique or exhausted.
+	// to next letter until unique or exhausted.
 	for idx, option := range c.Options {
 		var name = strings.ToLower(option.LongName)
 	GenShort:
