@@ -527,12 +527,12 @@ func generateOptionShortNames(c *Command) {
 	// letter from longname. Each time check if it is already used and advance
 	// to next letter until unique or exhausted.
 	for idx, option := range c.Options {
+		if option.ShortName != "" {
+			continue
+		}
 		var name = strings.ToLower(option.LongName)
 	GenShort:
 		for _, r := range name {
-			if option.ShortName != "" {
-				continue
-			}
 			option.ShortName = string(r)
 			for i := 0; i < idx; i++ {
 				if c.Options[i].ShortName == option.ShortName {
