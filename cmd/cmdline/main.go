@@ -175,6 +175,12 @@ It takes a single value in the key=value format that defines the command
 name. E.g.: name=MyStruct.
 
 
+"shortName"
+
+Used on source struct field specifies the generated option short name.
+If a duplicate is set it will be unset automatically during generation.
+
+
 "commandName"
 
 Specifies the name of the generated command.
