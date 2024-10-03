@@ -59,6 +59,10 @@ const (
 	// name. E.g.: name=MyStruct.
 	NameKey PairKey = "name"
 
+	// ShortNameKey is used on source struct fields and explicitly sets the 
+	// option short name.
+	ShortNameKey PairKey = "shortName"
+
 	// CommandNameKey specifies the name for the generated command.
 	CommandNameKey PairKey = "commandName"
 

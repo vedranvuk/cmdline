@@ -308,7 +308,7 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 
 	var opt = &Option{
 		LongName:        tag.First(NameKey),
-		ShortName:       "",
+		ShortName:       tag.First(ShortNameKey),
 		Help:            self.makeHelp(tag.Values[HelpKey], f.Doc),
 		SourceFieldName: f.Name,
 		SourceFieldPath: path,
@@ -530,6 +530,9 @@ func generateOptionShortNames(c *Command) {
 		var name = strings.ToLower(option.LongName)
 	GenShort:
 		for _, r := range name {
+			if option.ShortName != "" {
+				continue
+			}
 			option.ShortName = string(r)
 			for i := 0; i < idx; i++ {
 				if c.Options[i].ShortName == option.ShortName {
