@@ -262,17 +262,6 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 		path += f.Name
 	}
 
-	if s := f.GetPackage().Struct(f.Type); s != nil {
-		return self.parseStruct(s, path, c)
-	}
-
-	if imp := f.GetFile().ImportSpecFromSelector(f.Type); imp != nil {
-		if s := self.bast.PkgStruct(imp.Path, typeNameFromSelector(f.Type)); s != nil {
-			c.AddImport(imp.Path)
-			return self.parseStruct(s, path, c)
-		}
-	}
-
 	var tag = strutils.Tag{
 		KnownPairKeys:     knownPairKeys,
 		TagKey:            self.TagKey,
@@ -294,6 +283,17 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 
 	if tag.Exists(IgnoreKey) {
 		return nil
+	}
+
+	if s := f.GetPackage().Struct(f.Type); s != nil {
+		return self.parseStruct(s, path, c)
+	}
+
+	if imp := f.GetFile().ImportSpecFromSelector(f.Type); imp != nil {
+		if s := self.bast.PkgStruct(imp.Path, typeNameFromSelector(f.Type)); s != nil {
+			c.AddImport(imp.Path)
+			return self.parseStruct(s, path, c)
+		}
 	}
 
 	var (
