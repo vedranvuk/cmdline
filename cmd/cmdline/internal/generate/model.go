@@ -115,7 +115,7 @@ const (
 
 // knownPairKeys is a slice of all supported cmdline tag pair keys.
 var knownPairKeys = []string{
-	IncludeKey, NameKey, TargetNameKey, GenTargetKey, CommandNameKey, GenHandlerKey,
+	IncludeKey, NameKey, ShortNameKey, TargetNameKey, GenTargetKey, CommandNameKey, GenHandlerKey,
 	HandlerNameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey,
 }
 
