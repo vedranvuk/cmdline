@@ -2,6 +2,8 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
+// TODO Escape doc comments for quotes, etc.
+
 package generate
 
 import (
@@ -389,7 +391,7 @@ func (self *Config) generateOutput() (err error) {
 		return fmt.Errorf("format output: %w", err)
 	}
 	if self.Print {
-		if _, err = fmt.Print(string(s)); err != nil {
+		if _, err = fmt.Print(s); err != nil {
 			return fmt.Errorf("print to stdout: %w", err)
 		}
 	}
