@@ -391,7 +391,7 @@ func (self *Config) generateOutput() (err error) {
 		return fmt.Errorf("format output: %w", err)
 	}
 	if self.Print {
-		if _, err = fmt.Print(s); err != nil {
+		if _, err = fmt.Print(string(s)); err != nil {
 			return fmt.Errorf("print to stdout: %w", err)
 		}
 	}
