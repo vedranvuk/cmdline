@@ -254,22 +254,27 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 	if path != "" {
 		path += "."
 	}
-	if path += f.Name; f.Name == "" {
-		path += f.Type
+	if f.Unnamed {
+		path += typeNameFromSelector(f.Type)
+	} else {
+		path += f.Name
 	}
 
-	if s := f.GetFile().Struct(f.Type); s != nil {
+	if s := f.GetPackage().Struct(f.Type); s != nil {
 		return self.parseStruct(s, path, c)
+	}
+
+	if imp := f.GetFile().ImportSpecFromSelector(f.Type); imp != nil {
+		if s := self.bast.PkgStruct(imp.Path, typeNameFromSelector(f.Type)); s != nil {
+			c.AddImport(imp.Path)
+			return self.parseStruct(s, path, c)
+		}
 	}
 
 	var tag = strutils.Tag{
 		KnownPairKeys:     knownPairKeys,
 		TagKey:            self.TagKey,
 		ErrorOnUnknownKey: true,
-	}
-
-	if tag.Exists(IgnoreKey) {
-		return nil
 	}
 
 	if err = tag.Parse(f.Tag); err != nil {
@@ -285,11 +290,8 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 		}
 	}
 
-	var name = f.Name
-	if tag.Exists(NameKey) {
-		if name = tag.First(NameKey); name == "" {
-			return errors.New("invalid name tag, no value")
-		}
+	if tag.Exists(IgnoreKey) {
+		return nil
 	}
 
 	var (
@@ -305,11 +307,14 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 	}
 
 	var opt = &Option{
-		LongName:        name,
+		LongName:        tag.First(NameKey),
 		ShortName:       "",
 		Help:            self.makeHelp(tag.Values[HelpKey], f.Doc),
 		SourceFieldName: f.Name,
 		SourceFieldPath: path,
+	}
+	if opt.LongName == "" {
+		opt.LongName = f.Name
 	}
 	switch opt.SourceBasicType = self.bast.ResolveBasicType(f.Type); opt.SourceBasicType {
 	case "bool":
@@ -349,6 +354,15 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 	c.Options = append(c.Options, opt)
 
 	return nil
+}
+
+// typeNameFromSelector returns the type name without the package prefix from
+// a selector expression. If not a selector expression returns input as is.
+func typeNameFromSelector(selectorExpr string) string {
+	if _, name, selector := strings.Cut(selectorExpr, "."); selector {
+		return name
+	}
+	return selectorExpr
 }
 
 // generateOutput generates output go file with command definitions.

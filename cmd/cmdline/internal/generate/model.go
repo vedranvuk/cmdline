@@ -180,6 +180,8 @@ type (
 		// struct.
 		SourcePackagePath string
 
+		Imports []string
+
 		// Options to generate.
 		Options Options
 	}
@@ -238,6 +240,9 @@ func (self Model) Imports() (out []string) {
 	for _, command := range self.Commands {
 		if command.GenTarget {
 			paths[command.SourcePackagePath] = struct{}{}
+			for _, path := range command.Imports {
+				paths[path] =  struct{}{}
+			}
 		}
 	}
 	out = make([]string, 0, len(paths) + 1)
@@ -254,6 +259,17 @@ func (self Model) Imports() (out []string) {
 func (self Command) TargetSelector() string {
 	return self.SourcePackageName + "." + self.SourceType
 }
+
+// AddImport adds an additonal import.
+func (self *Command) AddImport(path string) {
+	for _, imp := range self.Imports {
+		if imp == path {
+			return
+		}
+	}
+	self.Imports = append(self.Imports, path)
+}
+
 
 // Count returns number of [Option] in [Options].
 func (self Options) Count() int { return len(self) }

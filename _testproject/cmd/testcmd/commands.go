@@ -29,7 +29,7 @@ func cmdlineConfig() (c *cmdline.Config) {
 		OptionalVar("email", "e", "EMail is the email address.", &config.Sub.EMail).
 		VariadicVar("Names", "Names is a slice of string.", &config.Names)
 
-	c.Commands.Register(cmdline.HelpCommand())
+	c.Commands.Register(cmdline.HelpCommand(nil))
 
 	return
 }
