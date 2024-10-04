@@ -60,19 +60,19 @@ type Config struct {
 	// directory recursively.
 	//
 	// Default: "./..."
-	Packages []string `cmdline:"name=packages" json:"packages,omitempty"`
+	Packages []string
 
 	// OutputFile is the output file that will contain generated commands.
 	//
 	// It can be a full or relative path to a go file.
 	//
 	// Default "cmdline.go"
-	OutputFile string `cmdline:"name=output-file,required" json:"outputFile,omitempty"`
+	OutputFile string
 
 	// PackageName is the name of the package generated file belongs to.
 	//
 	// Defaults to base name of the current directory.
-	PackageName string `cmdline:"package-name" json:"packageName,omitempty"`
+	PackageName string
 
 	// Template is the filename of the template to use for code generation.
 	//
@@ -81,48 +81,54 @@ type Config struct {
 	// by the field value.
 	//
 	// Default: GenChainedTmplName
-	Template string `cmdline:"template" json:"template,omitempty"`
+	Template string
 
 	// TagKey is the name of the tag key whose value is read by cmdline from
 	// struct tags or doc comments.
 	//
 	// Default: "cmdline"
-	TagKey string `cmdline:"name=tag-key" json:"tagName,omitempty"`
+	TagKey string
 
 	// HelpFromTag if true Adds option help from HelpTag.
 	//
 	// Default: true
-	HelpFromTag bool `cmdline:"name=help-from-tag" json:"helpFromTag,omitempty"`
+	HelpFromTag bool
 
 	// HelpFromDocs if true adds option help from srtuct field docs.
 	//
 	// Default: true
-	HelpFromDocs bool `cmdline:"name=help-from-docs" json:"helpFromDocs,omitempty"`
+	HelpFromDocs bool
+
+	// CaseMapping specifies how to map option names if name is not explicitly
+	// set via model.NameKey.
+	//
+	// cmdline:"help: One of NoMapping PascalMapping SnakeMapping CamelMapping KebabMapping"
+	strutils.CaseMapping
 
 	// ErrorOnUnsupportedField if true throws an error during parse if an
 	// unsupported field was found in a source struct.
 	//
 	// Default: false
-	ErrorOnUnsupportedField bool `cmdline:"name=error-on-unsupported-field" json:"errorOnUnsupportedField,omitempty"`
+	ErrorOnUnsupportedField bool
 
 	// Print prints the output to stdout.
 	//
 	// Default: true
-	Print bool `cmdline:"name=print-to-stdout" json:"print"`
+	Print bool
 
 	// NoWrite if true disables writing to output file.
 	//
 	// Default: false
-	NoWrite bool `cmdline:"name=no-write"`
+	NoWrite bool
 
 	// BastConfig is the bastard ast config.
-	BastConfig *bast.Config `json:"-"`
+	BastConfig *bast.Config
 
 	// Model is the parsed model.
-	Model `json:"-"`
+	Model
 
 	// bast is the parsed bast.
-	bast *bast.Bast `json:"-"`
+	bast *bast.Bast
 }
 
 // Default returns the default [Config].
@@ -183,6 +189,7 @@ func Generate(config *Config) (err error) {
 
 		var tag = strutils.Tag{
 			KnownPairKeys:     knownPairKeys,
+			Separator:         ";",
 			TagKey:            config.TagKey,
 			ErrorOnUnknownKey: true,
 		}
@@ -264,6 +271,7 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 
 	var tag = strutils.Tag{
 		KnownPairKeys:     knownPairKeys,
+		Separator:         ";",
 		TagKey:            self.TagKey,
 		ErrorOnUnknownKey: true,
 	}
@@ -316,7 +324,7 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 		SourceFieldPath: path,
 	}
 	if opt.LongName == "" {
-		opt.LongName = f.Name
+		opt.LongName = self.CaseMapping.Map(f.Name)
 	}
 	switch opt.SourceBasicType = self.bast.ResolveBasicType(f.Type); opt.SourceBasicType {
 	case "bool":

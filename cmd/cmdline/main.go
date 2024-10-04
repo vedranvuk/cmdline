@@ -34,6 +34,7 @@ func main() {
 		Optional("output-file", "o", "Output file name.").
 		Optional("tag-key", "k", "Name of the tag key to parse from docs and struct tags.").
 		Optional("build-dir", "b", "Specify build directory.").
+		Optional("case-mapping", "c", "One of: NoMapping PascalMapping SnakeMapping CamelMapping KebabMapping").
 		// Optional("template", "t", "Template to use for code generation.").
 		Boolean("help-from-tag", "g", "Include help from tag.").
 		Boolean("help-from-doc", "d", "Include help from doc comments.").
@@ -81,6 +82,7 @@ func handleGenerate(c cmdline.Context) error {
 		HelpFromDocs:            c.Parsed("help-from-doc"),
 		BastConfig:              bast.DefaultConfig(),
 	}
+	config.CaseMapping.UnmarshalText([]byte(c.Values("case-mapping").First()))
 	config.BastConfig.Dir = c.Values("build-dir").First()
 
 	return generate.Generate(config)
