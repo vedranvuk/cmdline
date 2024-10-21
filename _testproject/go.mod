@@ -4,6 +4,6 @@ go 1.23.1
 
 replace github.com/vedranvuk/cmdline => ../.
 
-require github.com/vedranvuk/cmdline v0.0.0-20241001181250-0c6d3a63a796
+require github.com/vedranvuk/cmdline v0.0.0-20241017091508-6290b277e3a3
 
-require github.com/vedranvuk/strutils v0.0.0-20241001110106-58c3aa315164 // indirect
+require github.com/vedranvuk/strutils v0.0.0-20241007111647-4b5712c7352b // indirect

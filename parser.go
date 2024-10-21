@@ -5,6 +5,7 @@
 package cmdline
 
 import (
+	"encoding"
 	"errors"
 	"fmt"
 	"strconv"
@@ -403,6 +404,10 @@ func (self Options) setVar(option *Option) (err error) {
 func convertToVar(v any, raw Values) (err error) {
 
 	// TODO Accept pointer to a pointer (null-like behaviour).
+
+	if tu, ok := v.(encoding.TextUnmarshaler); ok {
+		return tu.UnmarshalText([]byte(raw.First()))
+	}
 
 	switch p := v.(type) {
 	case *bool:

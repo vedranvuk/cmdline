@@ -18,16 +18,18 @@ func cmdlineConfig() (c *cmdline.Config) {
 
 	c.Commands.
 		Handle("options", "Defines a set of options.  Options is a demo struct.", optionsCmdHandler).Options.
-		RequiredVar("outDir", "o", "Output directory. ", &optionsVar.OutputDirectory)
+		OptionalVar("outDir,required", "o", "Output directory. ", &optionsVar.OutputDirectory)
 
 	c.Commands.
-		Handle("config", "", configCommandHandler).Options.
-		OptionalVar("Name", "n", "Name is the name.", &config.Name).
-		RequiredVar("Age", "a", "Age is the age.", &config.Age).
-		BooleanVar("Subscribed", "s", "Subscribed is usually true.", &config.Subscribed).
-		OptionalVar("DOB", "d", "DOB is the darte of birth.", &config.Sub.DOB).
-		OptionalVar("email", "e", "EMail is the email address.", &config.Sub.EMail).
-		VariadicVar("Names", "Names is a slice of string.", &config.Names)
+		Handle("config,targetName=config,commandName=configCommand,genHandler", "", configCmdHandler).Options.
+		OptionalVar("Name", "n", "Name is the name.", &configTargetNameConfigCommandNameConfigCommandGenHandlerVar.Name).
+		RequiredVar("Age", "a", "Age is the age.", &configTargetNameConfigCommandNameConfigCommandGenHandlerVar.Age).
+		BooleanVar("Subscribed", "s", "Subscribed is usually true.", &configTargetNameConfigCommandNameConfigCommandGenHandlerVar.Subscribed).
+		OptionalVar("DOB", "d", "DOB is the darte of birth.", &configTargetNameConfigCommandNameConfigCommandGenHandlerVar.Sub.DOB).
+		OptionalVar("email", "e", "EMail is the email address.", &configTargetNameConfigCommandNameConfigCommandGenHandlerVar.Sub.EMail).
+		OptionalVar("Nickname", "i", "", &configTargetNameConfigCommandNameConfigCommandGenHandlerVar.Sub.Other.Nickname).
+		OptionalVar("Hits", "h", "", &configTargetNameConfigCommandNameConfigCommandGenHandlerVar.Sub.Other.Hits).
+		RepeatedVar("Names", "m", "Names is a slice of string.", &configTargetNameConfigCommandNameConfigCommandGenHandlerVar.Names)
 
 	c.Commands.Register(cmdline.HelpCommand(nil))
 
@@ -36,10 +38,5 @@ func cmdlineConfig() (c *cmdline.Config) {
 
 // optionsCmdHandler is a handler for the optionsCmd.
 func optionsCmdHandler(c cmdline.Context) error {
-	return nil
-}
-
-// configCommandHandler is a handler for the configCommand.
-func configCommandHandler(c cmdline.Context) error {
 	return nil
 }

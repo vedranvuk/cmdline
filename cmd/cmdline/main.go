@@ -41,6 +41,7 @@ func main() {
 		Boolean("error-on-unsupported-field", "e", "Throws an error if unsupporrted field was encountered.").
 		Boolean("print", "r", "Print output.").
 		Boolean("no-write", "n", "Do not write output file.").
+		Boolean("verbose", "v", "Verbose output.").
 		Variadic("packages", "Packages to parse.")
 	config.Commands.Handle("dump", "Dumps the codegen template.", handleDump).Options.
 		Variadic("dir", "Output directory.")
@@ -80,6 +81,7 @@ func handleGenerate(c cmdline.Context) error {
 		ErrorOnUnsupportedField: c.Parsed("error-on-unsupported-field"),
 		HelpFromTag:             c.Parsed("help-from-tag"),
 		HelpFromDocs:            c.Parsed("help-from-doc"),
+		Verbose:                 c.Parsed("verbose"),
 		BastConfig:              bast.DefaultConfig(),
 	}
 	config.CaseMapping.UnmarshalText([]byte(c.Values("case-mapping").First()))

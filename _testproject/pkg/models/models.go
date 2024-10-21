@@ -1,11 +1,15 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/vedranvuk/cmdline/_testproject/pkg/other"
+)
 
 // Options is a demo struct.
 // cmdline:"name=options"
 // cmdline:"help=Defines a set of options."
-// cmdline:"genTarget,genHandler"
+// cmdline:"genTarget;genHandler"
 type Options struct {
 	//cmdline:"help=Output directory."
 	OutputDirectory string `cmdline:"name=outDir,required"`
@@ -31,4 +35,6 @@ type Sub struct {
 	// EMail is the email address.
 	//cmdline:"name=email"
 	EMail string
+	// Other is a struct from another package.
+	Other other.SubStruct
 }

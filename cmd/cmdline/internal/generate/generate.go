@@ -121,6 +121,9 @@ type Config struct {
 	// Default: false
 	NoWrite bool
 
+	// Verbose if true prints verbose output to stdout.
+	Verbose bool
+
 	// BastConfig is the bastard ast config.
 	BastConfig *bast.Config
 
@@ -183,6 +186,10 @@ func Generate(config *Config) (err error) {
 
 	if config.bast, err = bast.Load(config.BastConfig, config.Packages...); err != nil {
 		return
+	}
+
+	if config.Verbose {
+		bast.Print(os.Stdout, config.bast)
 	}
 
 	for _, s := range config.bast.AllStructs() {
@@ -260,6 +267,10 @@ func (self *Config) parseStruct(s *bast.Struct, path string, c *Command) (err er
 // parseField parses a struct field into a command option.
 func (self *Config) parseField(f *bast.Field, path string, c *Command) (err error) {
 
+	if strutils.IsLower(f.Name[0]) {
+		return nil
+	}
+	
 	if path != "" {
 		path += "."
 	}
@@ -333,6 +344,9 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 		"uint", "uint8", "uint16", "uint32", "uint64",
 		"float32", "float64",
 		"string":
+		if tag.Exists(VariadicKey) {
+			return errors.New("tag error: variadic kind supported on string slices only")
+		}
 		if optional {
 			opt.Kind = cmdline.Optional
 		}
@@ -340,7 +354,11 @@ func (self *Config) parseField(f *bast.Field, path string, c *Command) (err erro
 			opt.Kind = cmdline.Required
 		}
 	case "[]string":
-		opt.Kind = cmdline.Variadic
+		if tag.Exists(VariadicKey) {
+			opt.Kind = cmdline.Variadic
+		} else {
+			opt.Kind = cmdline.Repeated
+		}
 	case "":
 		if f.Type == "time.Time" {
 			if optional {

@@ -107,16 +107,24 @@ const (
 	OptionalKey PairKey = "optional"
 
 	// RequiredKey is read from struct fields and specifies that the tagged
-	// field should use the Required option.
+	// field should use the Required option kind.
 	//
 	// It takes no values.
 	RequiredKey PairKey = "required"
+
+	// VariadicKey is read from struct fields and specifies that the tagged
+	// field should use the Variadic Option kind.
+	//
+	// This is supported on string slices only.
+	//
+	// It takes no values.
+	VariadicKey PairKey = "variadic"
 )
 
 // knownPairKeys is a slice of all supported cmdline tag pair keys.
 var knownPairKeys = []string{
 	IncludeKey, NameKey, ShortNameKey, TargetNameKey, GenTargetKey, CommandNameKey, GenHandlerKey,
-	HandlerNameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey,
+	HandlerNameKey, HelpKey, IgnoreKey, OptionalKey, RequiredKey, VariadicKey,
 }
 
 type (
@@ -184,6 +192,9 @@ type (
 		// struct.
 		SourcePackagePath string
 
+		// Imports are the imports to be added to the generated file.
+		//
+		// Paths of source struct field types defined in other packages.
 		Imports []string
 
 		// Options to generate.
@@ -293,7 +304,7 @@ func (self Option) Declaration(cmd *Command) string {
 	case cmdline.Required:
 		return fmt.Sprintf("RequiredVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
 	case cmdline.Repeated:
-		return fmt.Sprintf("RepeatedVar(\"%s\", \"%s\", &%s)", self.LongName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
+		return fmt.Sprintf("RepeatedVar(\"%s\", \"%s\", \"%s\", &%s)", self.LongName, self.ShortName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
 	case cmdline.Variadic:
 		return fmt.Sprintf("VariadicVar(\"%s\", \"%s\", &%s)", self.LongName, self.Help, cmd.TargetName+"."+self.SourceFieldPath)
 	default:
