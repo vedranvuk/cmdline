@@ -13,9 +13,15 @@ import (
 // and non-empty long names and that short names, if not empty, are unique as
 // well. Returns nil on success.
 func ValidateOptions(options Options) error {
+	var hasVariadic string
 	for _, option := range options {
 		switch option.Kind {
-		case Boolean, Optional, Required, Indexed, Repeated, Variadic:
+		case Boolean, Optional, Required, Indexed, Repeated:
+		case Variadic:
+			if hasVariadic != "" {
+				return fmt.Errorf("validation failed: multiple variadic options in options set: %s and %s", hasVariadic, option.LongName)
+			}
+			hasVariadic = option.LongName
 		default:
 			return errors.New("validation failed: invalid option type, must be a pointer to one of supported option types")
 		}

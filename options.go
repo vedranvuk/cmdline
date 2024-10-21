@@ -72,6 +72,8 @@ const (
 	//
 	// Variadic option is parsed after all other options and consumes all
 	// unused arguments as arguments to self.
+	//
+	// There may only be a single variadic option in [Options].
 	Variadic
 )
 
