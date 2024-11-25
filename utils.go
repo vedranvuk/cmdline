@@ -16,7 +16,7 @@ type TopicMap map[string]string
 // using HelpHandler.
 func HelpCommand(topicMap TopicMap) (out *Command) {
 
-	const doc = `Help command shows a command usage or help on a specific topic.
+	const doc = `Show help on certain topic or a command.
 
 Usage:
   help <help topic|command [subcommand]>`
