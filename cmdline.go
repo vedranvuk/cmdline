@@ -120,6 +120,12 @@ type Config struct {
 	// Default: false.
 	PrintInDefinedOrder bool
 
+	// NoPrintUsage if true does not print the usage if no arguments were
+	// given for parsing
+	//
+	// Default: false.
+	NoPrintUsage bool
+
 	// context is the context given to Config.Parse and is set at that time.
 	// If nil context was given, Config.Parse sets it to context.Background().
 	context context.Context
@@ -212,8 +218,11 @@ func (self *Config) Parse(ctx context.Context) (err error) {
 	}
 
 	// No arguments case.
-	// Call Usage or print default text.
+	// Call Usage or print default text if enabled.
 	if len(self.Args) == 0 {
+		if self.NoPrintUsage {
+			return nil
+		}
 		if self.Usage != nil {
 			self.Usage()
 		} else {
