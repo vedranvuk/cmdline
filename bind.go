@@ -63,7 +63,7 @@ func bindStruct(v reflect.Value, c *Config, path string) (err error) {
 		if tag.Exists(SkipKey) {
 			continue
 		}
-		if tag.Exists(LongKey) {
+		if tag.ExistsNonEmpty(LongKey) {
 			long = tag.First(LongKey)
 		}
 		switch v.Type().Field(i).Type.Kind() {
