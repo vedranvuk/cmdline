@@ -1,6 +1,2 @@
-github.com/vedranvuk/strutils v0.0.0-20240929151339-c677c08dd040 h1:W54kzlplD8y/p3B0Rshcb5AvgeX6/GoBw90g7/9n+1Y=
-github.com/vedranvuk/strutils v0.0.0-20240929151339-c677c08dd040/go.mod h1:QFCr2fY55ntbIwBMLhk6JhS4R9ZusUbiBeKRryKU3MM=
-github.com/vedranvuk/strutils v0.0.0-20241001110106-58c3aa315164 h1:LFOHPWZ4IL2diVQjuwGI8U6MmW7kYPDpjSItHoOzDWw=
-github.com/vedranvuk/strutils v0.0.0-20241001110106-58c3aa315164/go.mod h1:QFCr2fY55ntbIwBMLhk6JhS4R9ZusUbiBeKRryKU3MM=
-github.com/vedranvuk/strutils v0.0.0-20241007111647-4b5712c7352b h1:hBS41PYGWaPm+frGBezmGLtvNTlmt0MD3L2vQkoZMSU=
-github.com/vedranvuk/strutils v0.0.0-20241007111647-4b5712c7352b/go.mod h1:QFCr2fY55ntbIwBMLhk6JhS4R9ZusUbiBeKRryKU3MM=
+github.com/vedranvuk/strutils v0.0.0-20241128222816-7b9a68278499 h1:l+tP5z3jJyXnbaJmzRW2krXBaB/lff7h207/14PTCEk=
+github.com/vedranvuk/strutils v0.0.0-20241128222816-7b9a68278499/go.mod h1:QFCr2fY55ntbIwBMLhk6JhS4R9ZusUbiBeKRryKU3MM=

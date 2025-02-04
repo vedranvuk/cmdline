@@ -6,6 +6,7 @@ package cmdline_test
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/vedranvuk/cmdline"
 )
@@ -153,4 +154,44 @@ func ExampleParse2() {
 	// verbose requested.
 	// command: items
 	// command: add (force: true) (count: true)
+}
+
+type Data struct {
+	Name string
+	Age  int
+	SkipMe bool   `cmdline:"skip"`
+	Sub
+}
+
+type Sub struct {
+	Nickname string
+}
+
+func ExampleBind() {
+	var data = Data{
+		Name: "foo",
+		Age:  69,
+		Sub: Sub{Nickname: "baz"},
+
+	}
+	var config, err = cmdline.Bind(cmdline.Default(), &data)
+	if err != nil {
+		log.Fatal(err)
+
+	}
+	config.UseAssignment = true
+	config.Args = []string{
+		"--name=bar",
+		"--age=42",
+		"--sub.nickname=bat",
+	}
+
+	if err = config.Parse(nil); err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%+#v\n", data)
+
+	// Output:
+	// cmdline_test.Data{Name:"bar", Age:42, SkipMe:false, Sub:cmdline_test.Sub{Nickname:"bat"}}
 }

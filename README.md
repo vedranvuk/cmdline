@@ -1,10 +1,8 @@
 # cmdline
 
-Cmdline is handler based command line parser. It supports Commands with SubCommands, multiple Option types and mapping to variables.
+Cmdline is handler based command line parser. It supports Commands with SubCommands, multiple Option types, mapping to variables, config generation from some input structs and binding to structs.
 
-Package is in experimental stage. 
-
-**If you plan on using it, vendor it.**
+Package is ever evolving. **If you plan on using it, vendor it.**
 
 ## Examples
 
@@ -194,6 +192,51 @@ func parse() {
 	// verbose requested.
 	// command: items
 	// command: add (force: true) (count: true)
+}
+
+```
+
+Binding to structs.
+
+```Go
+type Data struct {
+	Name string
+	Age  int
+	SkipMe bool   `cmdline:"skip"`
+	Sub
+}
+
+type Sub struct {
+	Nickname string
+}
+
+func ExampleBind() {
+	var data = Data{
+		Name: "foo",
+		Age:  69,
+		Sub: Sub{Nickname: "baz"},
+
+	}
+	var config, err = cmdline.Bind(cmdline.Default(), &data)
+	if err != nil {
+		log.Fatal(err)
+
+	}
+	config.UseAssignment = true
+	config.Args = []string{
+		"--name=bar",
+		"--age=42",
+		"--sub.nickname=bat",
+	}
+
+	if err = config.Parse(nil); err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%+#v\n", data)
+
+	// Output:
+	// &{Name:foo Age:69 Sub:{Nickname:baz}}
 }
 ```
 

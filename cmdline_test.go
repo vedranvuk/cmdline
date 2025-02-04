@@ -6,6 +6,7 @@ package cmdline
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -571,4 +572,41 @@ func getPrettyPrintDemoConfig() (out *Config) {
 		Variadic("variadic", "A Variadic Option")
 
 	return
+}
+
+type BindData struct {
+	Name   string
+	Age    int
+	SkipMe bool `cmdline:"skip"`
+	Sub    BindSub
+}
+
+type BindSub struct {
+	Nickname string
+}
+
+func TestBind(t *testing.T) {
+	var data = BindData{
+		Name: "foo",
+		Age:  69,
+		Sub:  BindSub{Nickname: "baz"},
+	}
+	var config, err = Bind(Default(), &data)
+	if err != nil {
+		t.Fatal(err)
+
+	}
+	config.UseAssignment = true
+	config.Args = []string{
+		"--name=bar",
+		"--age=42",
+		"--sub.nickname=bat",
+	}
+	if testing.Verbose() {
+		PrintConfig(os.Stdout, config)
+	}
+
+	if err = config.Parse(nil); err != nil {
+		t.Fatal(err)
+	}
 }
