@@ -18,19 +18,32 @@ type TagKey string
 const (
 	// SkipKey defines that the marked field should be skipped when binding.
 	SkipKey = "skip"
+
 	// RequiredKey defines that the option should be defined as required.
 	RequiredKey = "required"
 
-	LongKey  = "long"
+	// LongKey specifies the long name of the option to use.
+	//
+	// Optional, and if specified value must not be empty.
+	// If unspecified defaults to auto generated name.
+	LongKey = "long"
+
+	// ShortKey specifies the short name of the option to use.
+	//
+	// Optional, and if specified value must not be empty.
+	// If unspecified short names are auto generated.
 	ShortKey = "short"
-	HelpKey  = "help"
+
+	// HelpKey specifies the optional help text for the option.
+	HelpKey = "help"
 )
 
 // Bind binds a cmdline config to a target struct.
 //
 // For each field in the target struct a global option is defined and bound to
 // the source field value. Fields of embedded structs are recursively processed
-// and named by a path. Only fields of type supported by [Option] are supported.
+// and named by a dit delimited path. Only fields of type supported by [Option]
+// are supported.
 func Bind(config *Config, target any) (out *Config, err error) {
 	var v = reflect.ValueOf(target)
 	if !v.IsValid() || v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
@@ -65,6 +78,12 @@ func bindStruct(v reflect.Value, c *Config, path string) (err error) {
 		}
 		if tag.ExistsNonEmpty(LongKey) {
 			long = tag.First(LongKey)
+		}
+		if tag.ExistsNonEmpty(ShortKey) {
+			short = tag.First(ShortKey)
+		}
+		if tag.ExistsNonEmpty(HelpKey) {
+			help = tag.First(HelpKey)
 		}
 		switch v.Type().Field(i).Type.Kind() {
 		case reflect.Bool:
