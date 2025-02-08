@@ -38,6 +38,11 @@ Usage:
 			var vals = c.Values("topic")
 			if len(vals) == 0 {
 				fmt.Fprintf(config.GetOutput(), "%s\n\n", out.Doc)
+				if len(config.Globals) > 0 {
+					fmt.Fprintf(config.GetOutput(), "Global options are:\n\n")
+					PrintOptions(config.GetOutput(), config, config.Globals, 2)
+					fmt.Fprintf(config.GetOutput(), "\n")
+				}
 				if len(topicMap) > 0 {
 					fmt.Fprintf(config.GetOutput(), "Available topics are:\n\n")
 					for topic := range topicMap {
