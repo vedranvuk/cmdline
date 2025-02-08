@@ -50,13 +50,13 @@ Usage:
 					PrintCommandsNoOptions(config.GetOutput(), config, config.Commands, 1)
 					fmt.Fprintf(config.GetOutput(), "\n")
 				}
-				return nil
+				return ErrHelp
 			}
 
 			if len(vals) == 1 {
 				if help, ok := topicMap[vals[0]]; ok {
 					fmt.Fprint(config.GetOutput(), help)
-					return nil
+					return ErrHelp
 				}
 			}
 
