@@ -9,6 +9,9 @@ import (
 	"fmt"
 )
 
+// ErrHelp is returned by the HelpCommand handler on successfull invocation.
+var ErrHelp = errors.New("heklp requested")
+
 // TopicMap maps topic names to topic text.
 type TopicMap map[string]string
 
@@ -92,7 +95,7 @@ Usage:
 					PrintCommandsGroup(config.GetOutput(), config, cmd.SubCommands, 2)
 					fmt.Fprintf(config.GetOutput(), "\n")
 				}
-				return nil
+				return ErrHelp
 			}
 
 			return fmt.Errorf("Command '%s' not found.", vals[0])
