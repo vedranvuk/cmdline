@@ -131,7 +131,7 @@ func generateOptionShortNames(o Options) {
 	GenShort:
 		for _, r := range name {
 			option.ShortName = string(r)
-			if !strings.ContainsAny(option.ShortName, strutils.AlphaNums) {
+			if !strings.ContainsAny(option.ShortName, strutils.AlphaNumerals) {
 				continue GenShort
 			}
 			for i := 0; i < idx; i++ {
