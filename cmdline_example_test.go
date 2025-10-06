@@ -11,7 +11,7 @@ import (
 	"github.com/vedranvuk/cmdline"
 )
 
-func ExampleParse1() {
+func Example() {
 
 	var (
 		verbose = false
@@ -66,7 +66,7 @@ func ExampleParse1() {
 	// command: add (force: true) (count: true)
 }
 
-func ExampleParse2() {
+func ExampleExample() {
 
 	var (
 		verbose = false
