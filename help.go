@@ -10,7 +10,7 @@ import (
 )
 
 // ErrHelp is returned by the HelpCommand handler on successfull invocation.
-var ErrHelp = errors.New("heklp requested")
+var ErrHelp = errors.New("help requested")
 
 // TopicMap maps topic names to topic text.
 type TopicMap map[string]string

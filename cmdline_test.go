@@ -471,7 +471,7 @@ func TestHelpCommand(t *testing.T) {
 	var config = getPrettyPrintDemoConfig()
 	config.Commands.Register(HelpCommand(nil))
 	config.Args = []string{"help"}
-	if err := config.Parse(nil); err != nil {
+	if err := config.Parse(nil); err != ErrHelp {
 		t.Fatal(err)
 	}
 }
