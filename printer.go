@@ -15,7 +15,7 @@ import (
 func PrintConfig(w io.Writer, config *Config) {
 	var wr = newTabWriter(w)
 	if config.Globals.Count() > 0 {
-		io.WriteString(wr, fmt.Sprintf("Global options:\n\n"))
+		io.WriteString(wr, "Global options\n\n")
 		PrintOptions(wr, config, config.Globals, 1)
 		io.WriteString(w, "\n")
 	}
@@ -29,7 +29,7 @@ func PrintConfig(w io.Writer, config *Config) {
 func PrintCommandsGroup(w io.Writer, config *Config, commands Commands, indent int) {
 	var tw = tabwriter.NewWriter(w, 2, 2, 2, 32, 0)
 	for _, command := range commands {
-		fmt.Fprintf(tw, "%s%s\t%s\n", indentString(indent),command.Name,  command.Help)
+		fmt.Fprintf(tw, "%s%s\t%s\n", indentString(indent), command.Name, command.Help)
 	}
 	tw.Flush()
 }
@@ -51,7 +51,7 @@ func PrintCommandsNoOptions(w io.Writer, config *Config, commands Commands, inde
 // PrintOptions prints commands to w idented with ident tabs using config.
 func printCommandsNoOptions(w io.Writer, config *Config, commands Commands, indent int) {
 	for _, command := range commands {
-		fmt.Fprintf(w, "%s%s\t%s\n", indentString(indent),command.Name,  command.Help)
+		fmt.Fprintf(w, "%s%s\t%s\n", indentString(indent), command.Name, command.Help)
 		if command.SubCommands.Count() > 0 {
 			printCommandsNoOptions(w, config, command.SubCommands, indent+1)
 		}

@@ -5,6 +5,7 @@
 package cmdline
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strings"
@@ -471,7 +472,7 @@ func TestHelpCommand(t *testing.T) {
 	var config = getPrettyPrintDemoConfig()
 	config.Commands.Register(HelpCommand(nil))
 	config.Args = []string{"help"}
-	if err := config.Parse(nil); err != ErrHelp {
+	if err := config.Parse(context.Background()); err != ErrHelp {
 		t.Fatal(err)
 	}
 }
@@ -503,7 +504,7 @@ func TestParser2(t *testing.T) {
 		Required("package-name", "p", "Name of the package output go file belongs to.").
 		Variadic("packages", "Packages to parse.")
 
-	if err := config.Parse(nil); err != nil {
+	if err := config.Parse(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -517,7 +518,7 @@ func TestCombinedBooleans(t *testing.T) {
 		BooleanVar("A", "a", "", &a).
 		BooleanVar("B", "b", "", &b).
 		BooleanVar("C", "c", "", &c)
-	if err := config.Parse(nil); err != nil {
+	if err := config.Parse(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if !a || !b || !c {
@@ -606,7 +607,7 @@ func TestBind(t *testing.T) {
 		PrintConfig(os.Stdout, config)
 	}
 
-	if err = config.Parse(nil); err != nil {
+	if err = config.Parse(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }
